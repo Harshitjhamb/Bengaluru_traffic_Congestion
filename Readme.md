@@ -47,7 +47,35 @@ Road closure is a genuinely hard problem — only 7.3% of events require one —
 model still beats the majority-class baseline by several times on the minority class.
 
 ## Repo Structure
-
+FLIPKART_GRID/
+│
+├── app/
+│   └── app.py
+│
+├── assets/
+│   ├── bengaluru_hotspot_map.html
+│   ├── eda_extra1_planned_vs_unplanned.png
+│   ├── model1_confusion_matrix.png
+│   ├── model1_feature_importance.png
+│   ├── step2_distributions.png
+│   ├── step3_time_patterns.png
+│   ├── step4_severity.png
+│   ├── step5_corridors_zones.png
+│   └── step5_zone_time_matrix.png
+│
+├── docs/
+│   └── vide_lind.md
+│
+├── models/
+│   └── recommendation_engine_bundle.pkl
+│
+├── notebook/
+│   └── Flipkart_grid_notebook_complete.ipynb
+│
+├── .gitignore
+├── README.md
+└── requirements.txt
+```
 
 ## How to Run
 ```bash
