@@ -77,6 +77,62 @@ FLIPKART_GRID/
 ├── README.md
 └── requirements.txt
 ```
+## Folder Description
+
+### 📂 app
+Contains the Streamlit application used for:
+- Event Simulation
+- Congestion Prediction
+- Resource Recommendation
+- Interactive Dashboard
+
+---
+
+### 📂 assets
+Contains all generated visualizations and analytics outputs:
+
+| File | Description |
+|--------|-------------|
+| bengaluru_hotspot_map.html | Interactive Bengaluru incident heatmap |
+| eda_extra1_planned_vs_unplanned.png | Planned vs Unplanned event analysis |
+| model1_confusion_matrix.png | Priority prediction confusion matrix |
+| model1_feature_importance.png | Feature importance visualization |
+| step2_distributions.png | Incident distribution plots |
+| step3_time_patterns.png | Hourly, weekly and monthly traffic patterns |
+| step4_severity.png | Severity analysis |
+| step5_corridors_zones.png | Corridor and zone analysis |
+| step5_zone_time_matrix.png | Zone-time incident matrix |
+
+---
+
+### 📂 docs
+Contains project documentation, methodology, and supporting notes.
+
+---
+
+### 📂 models
+Stores serialized machine learning models and recommendation engine artifacts.
+
+Current:
+- recommendation_engine_bundle.pkl
+
+Future:
+- priority_model.pkl
+- duration_model.pkl
+- road_closure_model.pkl
+
+---
+
+### 📂 notebook
+Contains the complete development notebook including:
+- Data Cleaning
+- Feature Engineering
+- Exploratory Data Analysis
+- Model Training
+- Evaluation
+- Visualization
+
+---
 
 ## How to Run
 ```bash
