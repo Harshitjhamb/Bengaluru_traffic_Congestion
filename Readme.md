@@ -47,6 +47,7 @@ Road closure is a genuinely hard problem — only 7.3% of events require one —
 model still beats the majority-class baseline by several times on the minority class.
 
 ## Repo Structure
+``` text
 FLIPKART_GRID/
 │
 ├── app/
