@@ -46,3 +46,27 @@ Road closure is a genuinely hard problem — only 7.3% of events require one —
 model still beats the majority-class baseline by several times on the minority class.
 
 ## Repo Structure
+
+
+## How to Run
+```bash
+pip install -r requirements.txt
+streamlit run app/app.py
+```
+Open `http://localhost:8501` and enter an event's type, cause, GPS coordinates, and time to
+get a full recommendation: priority, closure risk, expected duration, officer count, and
+which police station to deploy from.
+
+## Limitations & Future Work
+- Corridor detection from GPS uses k-nearest-neighbor on historical incident locations, not
+  true road geometry — a proper geofencing layer would be more precise.
+- Road closure recall (41%) leaves room for improvement with ground-condition data not present
+  in this dataset.
+- Manpower/barricading weights are domain-informed heuristics, not learned from outcome data
+  (e.g., whether deployed manpower actually resolved incidents faster) — a natural next step
+  if response-effectiveness data becomes available.
+
+## Dataset
+Provided by HackerEarth Gridlock Hackathon 2.0 (ASTRAM Bengaluru traffic event data,
+anonymized). See challenge page for access.
+
