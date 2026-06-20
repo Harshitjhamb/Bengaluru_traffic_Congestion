@@ -5,10 +5,12 @@ import joblib
 
 st.set_page_config(page_title="Bengaluru Event-Driven Congestion", page_icon="🚦", layout="wide")
 
+import pathlib
+
 @st.cache_resource
 def load_bundle():
-    return joblib.load('/content/drive/MyDrive/gridlock_models/recommendation_engine_bundle.pkl')
-
+    bundle_path = pathlib.Path(__file__).resolve().parent.parent / "models" / "recommendation_engine_bundle.pkl"
+    return joblib.load(bundle_path)
 B = load_bundle()
 
 def haversine_km(lat1, lon1, lat2, lon2):
