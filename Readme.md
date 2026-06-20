@@ -1,5 +1,3 @@
-
-
 # Bengaluru Event-Driven Congestion — Response Recommender
 
 **Gridlock Hackathon 2.0 · Round 2 · Theme 2 — Event-Driven Congestion (Planned & Unplanned)**
@@ -46,9 +44,41 @@ not memorization of a lookup table.
 Road closure is a genuinely hard problem — only 7.3% of events require one — but the tuned
 model still beats the majority-class baseline by several times on the minority class.
 
+**Priority Classifier — Confusion Matrix**
+![Priority confusion matrix](assets/model1_confusion_matrix.png)
+
+**Priority Classifier — Feature Importance**
+![Priority feature importance](assets/model1_feature_importance.png)
+
+## Exploratory Data Analysis
+
+**Event Distributions** — cause breakdown, planned vs unplanned, priority, status
+![Event distributions](assets/step2_distributions.png)
+
+**Time Patterns** — incidents by hour/day/month, hour×day heatmap
+![Time patterns](assets/step3_time_patterns.png)
+
+**Severity Analysis** — duration by cause, closure rate by cause, severity index distribution
+![Severity analysis](assets/step4_severity.png)
+
+**Corridor & Zone Analysis** — top corridors by risk, zone-wise incident load, police station load
+![Corridor and zone analysis](assets/step5_corridors_zones.png)
+
+**Zone × Time Manpower Matrix** — deployment planning heatmap
+![Zone time matrix](assets/step5_zone_time_matrix.png)
+
+**Planned vs Unplanned — Cause Comparison**
+![Planned vs unplanned](assets/eda_extra1_planned_vs_unplanned.png)
+
+**Interactive Hotspot Map**
+An interactive Folium heatmap of all incidents, with high-severity and road-closure events
+marked individually, is available at [`assets/bengaluru_hotspot_map.html`](assets/bengaluru_hotspot_map.html).
+GitHub doesn't render embedded HTML inline, so clone the repo and open the file locally
+(or open it directly from the file browser above) to interact with it.
+
 ## Repo Structure
-``` text
-FLIPKART_GRID/
+```text
+gridlock-event-congestion/
 │
 ├── app/
 │   └── app.py
@@ -65,18 +95,19 @@ FLIPKART_GRID/
 │   └── step5_zone_time_matrix.png
 │
 ├── docs/
-│   └── vide_lind.md
+│   └── demo_video_link.md
 │
 ├── models/
 │   └── recommendation_engine_bundle.pkl
 │
 ├── notebook/
-│   └── Flipkart_grid_notebook_complete.ipynb
+│   └── EDA_and_model_training.ipynb
 │
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ```
+
 ## Folder Description
 
 ### 📂 app
@@ -86,42 +117,16 @@ Contains the Streamlit application used for:
 - Resource Recommendation
 - Interactive Dashboard
 
----
-
 ### 📂 assets
-Contains all generated visualizations and analytics outputs:
-
-| File | Description |
-|--------|-------------|
-| bengaluru_hotspot_map.html | Interactive Bengaluru incident heatmap |
-| eda_extra1_planned_vs_unplanned.png | Planned vs Unplanned event analysis |
-| model1_confusion_matrix.png | Priority prediction confusion matrix |
-| model1_feature_importance.png | Feature importance visualization |
-| step2_distributions.png | Incident distribution plots |
-| step3_time_patterns.png | Hourly, weekly and monthly traffic patterns |
-| step4_severity.png | Severity analysis |
-| step5_corridors_zones.png | Corridor and zone analysis |
-| step5_zone_time_matrix.png | Zone-time incident matrix |
-
----
+Contains all generated visualizations and analytics outputs (see images above).
 
 ### 📂 docs
-Contains project documentation, methodology, and supporting notes.
-
----
+Contains the demo video link.
 
 ### 📂 models
-Stores serialized machine learning models and recommendation engine artifacts.
-
-Current:
-- recommendation_engine_bundle.pkl
-
-Future:
-- priority_model.pkl
-- duration_model.pkl
-- road_closure_model.pkl
-
----
+Stores the serialized recommendation engine bundle — a single `.pkl` containing the
+priority classifier, road closure classifier, duration regressor, and all lookup tables
+(police station assignment, corridor detection, severity weights) needed for inference.
 
 ### 📂 notebook
 Contains the complete development notebook including:
@@ -131,8 +136,6 @@ Contains the complete development notebook including:
 - Model Training
 - Evaluation
 - Visualization
-
----
 
 ## How to Run
 ```bash
@@ -155,4 +158,3 @@ which police station to deploy from.
 ## Dataset
 Provided by HackerEarth Gridlock Hackathon 2.0 (ASTRAM Bengaluru traffic event data,
 anonymized). See challenge page for access.
-
