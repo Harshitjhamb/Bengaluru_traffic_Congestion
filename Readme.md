@@ -1,56 +1,83 @@
-# Bengaluru Event-Driven Congestion — Response Recommender
+# Bengaluru Event-Driven Traffic Congestion — Response Recommender
 
-**Gridlock Hackathon 2.0 · Round 2 · Theme 2 — Event-Driven Congestion (Planned & Unplanned)**
+> **Gridlock Hackathon 2.0 · Theme 2 · Event-Driven Congestion**  
+> An ML-powered dashboard that predicts incident impact and recommends manpower, barricading, and police station deployment in real time.
 
-## Problem
-Political rallies, festivals, sports events, construction, and breakdowns create localized
-traffic breakdowns across Bengaluru. Event impact isn't quantified in advance, resource
-deployment is experience-driven, and there's no systematic post-event learning. This project
-predicts incident impact from historical ASTRAM event data and recommends manpower,
-barricading, and station deployment for incoming events.
+---
 
-## Approach
-A chained 3-model pipeline feeds a rule-based recommendation engine:
+## Overview of the project
 
-1. **Priority Classifier** (RandomForest) — predicts High/Low priority from location, time,
-   and event cause.
-2. **Road Closure Classifier** (RandomForest, threshold-tuned) — predicts whether an event
-   will require closing the road.
-3. **Duration Regressor** (RandomForest, log-transformed target) — predicts expected
-   resolution time in hours.
+Bengaluru handles thousands of traffic incidents daily — from vehicle breakdowns to VIP movements and protests. This project trains three machine learning models on 8,173 ASTRAM traffic events to:
 
-At inference time, priority and closure are predicted first, then combined with domain
-severity weights to estimate a composite risk score — which drives the duration prediction,
-manpower recommendation, and barricading decision. Police station assignment uses a
-historical zone lookup with a GPS-nearest-neighbor fallback; corridor is auto-detected from
-GPS coordinates rather than required as input.
+- Predict **incident priority** (High / Low)
+- Predict **road closure requirement** (Yes / No)
+- Estimate **incident duration** (hours)
+- Recommend **officer count**, **deployment station**, and **barricading** based on the above
 
-## ⭐ A key finding: catching data leakage
-Our first priority model scored 99.94% accuracy — which was a red flag, not a win. Investigation
-showed `corridor` was a near-deterministic proxy for `priority` (named corridor → ~99-100% High,
-non-corridor → ~99.8% Low) — almost certainly an operational labeling rule, not a learnable
-pattern. Removing it dropped accuracy to a much more honest **77.0%** — but that number reflects
-genuine learning from spatiotemporal signals (latitude/longitude dominate feature importance),
-not memorization of a lookup table.
+The v2 Streamlit app uses **XGBoost** models with rich feature engineering (circular time encoding, haversine hotspot distances, interaction features) achieving **AUC 0.98** and **avg confidence 89%**.
 
-## Results
+---
 
-| Model | Metric | Score |
-|---|---|---|
-| Priority Classifier | Accuracy / F1 | 77.0% / 0.82 |
-| Road Closure Classifier | F1 (tuned threshold=0.567) | 0.395 (Precision 0.38, Recall 0.41) |
-| Duration Regressor | MAE (log-transformed) | 1.11 hrs |
+## Project Structure
 
-Road closure is a genuinely hard problem — only 7.3% of events require one — but the tuned
-model still beats the majority-class baseline by several times on the minority class.
+```
+Bengaluru_Traffic_Congestion-main/
+│
+├── app/
+│   └── app_v2.py                        # Streamlit dashboard (v2, XGBoost + feature engineering)
+│
+├── assets/                              # EDA & model visualisation outputs
+│   ├── bengaluru_hotspot_map.html       # Interactive Folium map of congestion hotspots
+│   ├── eda_extra1_planned_vs_unplanned.png
+│   ├── model1_confusion_matrix.png      # Priority classifier confusion matrix
+│   ├── model1_feature_importance.png    # Top-15 feature importances
+│   ├── step2_distributions.png          # Feature distributions
+│   ├── step3_time_patterns.png          # Hourly / day-of-week traffic patterns
+│   ├── step4_severity.png               # Severity index breakdown
+│   ├── step5_corridors_zones.png        # Corridor & zone analysis
+│   └── step5_zone_time_matrix.png       # Zone × time-block heatmap
+│
+├── docs/
+│   └── vide_lind.md                     # Additional project notes / video link
+│
+├── models/
+│   └── recommendation_engine_bundle_v2.pkl   # Serialised model bundle (XGBoost v2)
+│
+├── notebook/
+│   └── Flipkart_grid_notebook_complete.ipynb # End-to-end EDA + training notebook (Google Colab)
+│
+├── .gitignore
+├── requirements.txt
+└── README.md
+```
 
-**Priority Classifier — Confusion Matrix**
-![Priority confusion matrix](assets/model1_confusion_matrix.png)
+---
 
-**Priority Classifier — Feature Importance**
-![Priority feature importance](assets/model1_feature_importance.png)
+## ML Pipeline
 
-## Exploratory Data Analysis
+### Dataset
+- **Source:** ASTRAM Bengaluru Traffic Events (`Hack_dataset.csv`)
+- **Size:** 8,173 rows × 46 columns
+- **Key columns:** `event_type`, `event_cause`, `latitude`, `longitude`, `priority`, `requires_road_closure`, `start_datetime`, `closed_datetime`, `corridor`, `zone`, `police_station`
+
+### Preprocessing (Notebook)
+1. Drop fully-null columns (`map_file`, `comment`, `meta_data`)
+2. Parse all datetime columns;remove rows with`end_datetime < start_datetime`
+3. Drop columns with >90% missing values
+4. Replace placeholder `0.0` in `endlatitude` / `endlongitude` with `NaN`
+5. Derive `duration_hrs` from `(closed_datetime − start_datetime)`
+6. Extract time features:`hour`, `day_of_week`, `month_num`
+7. Engineer binary flags: `is_weekend`, `is_peak_hour` (7–9 AM,5–8 PM), `is_night` (10 PM–6 AM)
+8. Normalise `event_cause` (lowercase + strip)
+
+### Feature Engineering (v2 App)
+- **Circular time encoding:** `sin/cos` of hour, month, day-of-week
+- **Haversine distances** to 6 known congestion hotspots (MG Road, Silk Board, Hebbal, Marathahalli, Whitefield, Electronic City)
+- **Interaction features:** `peak_x_cause`, `weekend_x_cause`
+- **Cause severity score** from lookup map
+---
+
+### Exploratory Data Analysis
 
 **Event Distributions** — cause breakdown, planned vs unplanned, priority, status
 ![Event distributions](assets/step2_distributions.png)
@@ -70,91 +97,157 @@ model still beats the majority-class baseline by several times on the minority c
 **Planned vs Unplanned — Cause Comparison**
 ![Planned vs unplanned](assets/eda_extra1_planned_vs_unplanned.png)
 
-**Interactive Hotspot Map**
-An interactive Folium heatmap of all incidents, with high-severity and road-closure events
-marked individually, is available at [`assets/bengaluru_hotspot_map.html`](assets/bengaluru_hotspot_map.html).
-GitHub doesn't render embedded HTML inline, so clone the repo and open the file locally
-(or open it directly from the file browser above) to interact with it.
+**Priority Classifier — Confusion Matrix**
+![Priority confusion matrix](assets/model1_confusion_matrix.png)
 
-## Repo Structure
-```text
-gridlock-event-congestion/
-│
-├── app/
-│   └── app.py
-│
-├── assets/
-│   ├── bengaluru_hotspot_map.html
-│   ├── eda_extra1_planned_vs_unplanned.png
-│   ├── model1_confusion_matrix.png
-│   ├── model1_feature_importance.png
-│   ├── step2_distributions.png
-│   ├── step3_time_patterns.png
-│   ├── step4_severity.png
-│   ├── step5_corridors_zones.png
-│   └── step5_zone_time_matrix.png
-│
-├── docs/
-│   └── demo_video_link.md
-│
-├── models/
-│   └── recommendation_engine_bundle.pkl
-│
-├── notebook/
-│   └── EDA_and_model_training.ipynb
-│
-├── .gitignore
-├── README.md
-└── requirements.txt
+---
+
+### Models
+
+| # | Task | Algorithm | Key Metric |
+|---|------|-----------|------------|
+| 1 | Priority classification (High / Low) | XGBoost (v2) / RandomForest (v1) | AUC 0.98 · F1 0.90 |
+| 2 | Road closure classification (Yes / No) | XGBoost (`scale_pos_weight` for imbalance) | Threshold-optimised |
+| 3 | Duration regression (hours) | XGBoost Regressor (log-transformed target) | MAE in hours |
+
+**Imbalance handling:** `scale_pos_weight = neg/pos` passed to XGBoost closure model.  
+**Leakage prevention:** `priority_score` and `closure_score` excluded from classifier features; `severity_index` used only for duration regression.
+
+### Model Bundle (`recommendation_engine_bundle_v2.pkl`)
+Serialised with `joblib`, the bundle contains:
+- `priority_model`, `closure_model`, `duration_model`
+- `priority_feature_cols`, `closure_feature_cols`, `duration_feature_cols`
+- `cat_features`, `num_features`, `cat_features_fixed`, `num_features_fixed`
+- `closure_threshold` (optimised for class imbalance)
+- `cause_score_map`, `manpower_map`
+- `zone_station_map`, `station_coords`, `corridor_coords`
+- `hotspots` (lat/lon of 6 key congestion points)
+
+---
+
+## Streamlit App (`app/app_v2.py`)
+
+### What It Does
+1. Accepts an incoming traffic event (type, cause, GPS, time, zone)
+2. Auto-detects the nearest **corridor** and **hotspot** via haversine distance
+3. Runs all three models and computes a **severity score** (0–11)
+4. Outputs:
+   - Risk level (Low / Medium / High / Critical)
+   - Predicted priority + confidence gauge
+   - Road closure prediction + confidence gauge
+   - Estimated duration
+   - Recommended officer count
+   - Recommended police station (zone lookup or GPS nearest-neighbour)
+   - Barricading recommendation
+   - Action checklist
+   - Live map with hotspot overlays
+
+### Quick Presets
+Three one-click presets for demo purposes:
+- Morning Accident — MG Road, 8 AM
+- VIP Movement — City Centre, 10 AM
+- Night Protest — Silk Board, 11 PM
+
+---
+
+## Setup & Installation
+
+### Prerequisites
+- Python 3.9+
+- pip
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Kartik-1818/Bengaluru_Traffic_Congestion
+cd Bengaluru_Traffic_Congestion
 ```
 
-## Folder Description
+### 2. Create a virtual environment (recommended)
+```bash
+python -m venv venv
+source venv/bin/activate        # macOS / Linux
+venv\Scripts\activate           # Windows
+```
 
-### 📂 app
-Contains the Streamlit application used for:
-- Event Simulation
-- Congestion Prediction
-- Resource Recommendation
-- Interactive Dashboard
-
-### 📂 assets
-Contains all generated visualizations and analytics outputs (see images above).
-
-### 📂 docs
-Contains the demo video link.
-
-### 📂 models
-Stores the serialized recommendation engine bundle — a single `.pkl` containing the
-priority classifier, road closure classifier, duration regressor, and all lookup tables
-(police station assignment, corridor detection, severity weights) needed for inference.
-
-### 📂 notebook
-Contains the complete development notebook including:
-- Data Cleaning
-- Feature Engineering
-- Exploratory Data Analysis
-- Model Training
-- Evaluation
-- Visualization
-
-## How to Run
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
-streamlit run app/app.py
 ```
-Open `http://localhost:8501` and enter an event's type, cause, GPS coordinates, and time to
-get a full recommendation: priority, closure risk, expected duration, officer count, and
-which police station to deploy from.
 
-## Limitations & Future Work
-- Corridor detection from GPS uses k-nearest-neighbor on historical incident locations, not
-  true road geometry — a proper geofencing layer would be more precise.
-- Road closure recall (41%) leaves room for improvement with ground-condition data not present
-  in this dataset.
-- Manpower/barricading weights are domain-informed heuristics, not learned from outcome data
-  (e.g., whether deployed manpower actually resolved incidents faster) — a natural next step
-  if response-effectiveness data becomes available.
+### 4. Run the Streamlit app
+```bash
+streamlit run app/app_v2.py
+```
 
-## Dataset
-Provided by HackerEarth Gridlock Hackathon 2.0 (ASTRAM Bengaluru traffic event data,
-anonymized). See challenge page for access.
+The app will open at `http://localhost:8501` in your browser.
+
+> **Note:** The pre-trained model bundle (`models/recommendation_engine_bundle_v2.pkl`) is included. No retraining is required to run the app.
+
+---
+
+## Reproducing the Training (Notebook)
+
+The full pipeline lives in `notebook/Flipkart_grid_notebook_complete.ipynb` and was developed on **Google Colab**.
+
+### Steps to re-run
+1. Upload `Hack_dataset.csv` to your Google Drive at `MyDrive/Hack_dataset.csv`
+2. Open the notebook in Colab and mount Drive
+3. Run all cells top-to-bottom:
+   - **Cells 1–N:** Data loading, cleaning, EDA, chart exports
+   - **ML Section:** Feature engineering → Model 1 (Priority) → Model 2 (Closure) → Model 3 (Duration)
+   - **Bundle Section:** Saves `recommendation_engine_bundle_v2.pkl` to Drive
+4. Copy the bundle into `models/` locally before running the app
+
+### Install notebook-only dependencies
+```bash
+pip install xgboost imbalanced-learn plotly folium
+```
+
+---
+
+## Dependencies (`requirements.txt`)
+
+```
+pandas
+numpy
+scikit-learn>=1.2
+xgboost>=1.7
+streamlit
+joblib
+folium
+seaborn
+matplotlib
+```
+
+---
+
+
+## EDA Highlights
+
+| Insight | Detail |
+|---------|--------|
+| Dataset size | 8,173 traffic events, 46 raw columns |
+| Event split | ~majority unplanned; minority planned |
+| Peak hours | 7–9 AM and 5–8 PM |
+| Top hotspots | Silk Board, Marathahalli, Hebbal, MG Road |
+| Severity range | 0–11 composite score (cause + type + priority + closure) |
+
+Visual outputs are saved to `assets/` and include distribution plots, time-pattern charts, corridor/zone heatmaps, and an interactive Folium map.
+
+
+## Known Hotspot Coordinates
+
+| Hotspot | Latitude | Longitude |
+|---------|----------|-----------|
+| MG Road | 12.9766 | 77.6075 |
+| Silk Board | 12.9174 | 77.6228 |
+| Hebbal | 13.0358 | 77.5970 |
+| Marathahalli | 12.9563 | 77.7010 |
+| Whitefield | 12.9698 | 77.7500 |
+| Electronic City | 12.8399 | 77.6770 |
+
+---
+
+## License
+
+This project was developed as a hackathon submission. Dataset rights belong to ASTRAM / the hackathon organisers.
