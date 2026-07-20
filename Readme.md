@@ -24,7 +24,7 @@ The v2 Streamlit app uses **XGBoost** models with rich feature engineering (circ
 Bengaluru_Traffic_Congestion-main/
 │
 ├── app/
-│   └── app_v2.py                        # Streamlit dashboard (v2, XGBoost + feature engineering)
+│   └── app.py                        # Streamlit dashboard (v2, XGBoost + feature engineering)
 │
 ├── assets/                              # EDA & model visualisation outputs
 │   ├── bengaluru_hotspot_map.html       # Interactive Folium map of congestion hotspots
@@ -125,7 +125,7 @@ Serialised with `joblib`, the bundle contains:
 
 ---
 
-## Streamlit App (`app/app_v2.py`)
+## Streamlit App (`app/app.py`)
 
 ### What It Does
 1. Accepts an incoming traffic event (type, cause, GPS, time, zone)
@@ -176,7 +176,7 @@ pip install -r requirements.txt
 
 ### 4. Run the Streamlit app
 ```bash
-streamlit run app/app_v2.py
+streamlit run app/app.py
 ```
 
 The app will open at `http://localhost:8501` in your browser.
