@@ -14,7 +14,7 @@ Bengaluru handles thousands of traffic incidents daily — from vehicle breakdow
 - Estimate **incident duration** (hours)
 - Recommend **officer count**, **deployment station**, and **barricading** based on the above
 
-The Streamlit app uses **XGBoost** models for all three tasks, with rich feature engineering — circular sin/cos time encoding, haversine distances to 6 named congestion hotspots, and interaction features — the priority classifier reaches **ROC-AUC 0.99**, and mean prediction confidence across the priority + closure test sets is **~88%**.
+The Streamlit app uses **XGBoost** models for all three tasks, with rich feature engineering — circular sin/cos time encoding, haversine distances to 6 named congestion hotspots, and interaction features — the priority classifier reaches **ROC-AUC 0.95**, and mean prediction confidence across the priority + closure test sets is **~81%**. The priority model is deliberately regularized (shallow trees, `reg_lambda`, `min_child_weight`) rather than pushed to its highest achievable accuracy, so confidence on a live, freshly-typed incident varies realistically instead of reading ~96%+ on nearly every input.
 
 ---
 
@@ -111,11 +111,13 @@ Bengaluru_Traffic_Congestion-main/
 
 | # | Task | Algorithm | Key Metric |
 |---|------|-----------|------------|
-| 1 | Priority classification (High / Low) | **XGBoost** (`scale_pos_weight`) | Acc 0.9694 · F1 0.9754 · **ROC-AUC 0.9924** |
+| 1 | Priority classification (High / Low) | **XGBoost** (`scale_pos_weight`, regularized) | Acc 0.9020 · F1 0.9205 · **ROC-AUC 0.9519** |
 | 2 | Road closure classification (Yes / No) | **XGBoost** (`scale_pos_weight` for 7.3% imbalance) | Acc 0.9124 · F1 0.3694 · AUC 0.7724 (threshold 0.609) |
 | 3 | Duration regression (hours) | **XGBoost Regressor** (log1p-transformed target) | MAE 1.08 hrs · R²(log) 0.219 |
 
-The priority classifier's accuracy was validated with a **spatial group-holdout** (test-set GPS locations never seen in training) to confirm it's learning a genuine spatial/temporal pattern rather than memorizing repeated incident locations — accuracy held at 0.9730 / AUC 0.9886 under that harder split.
+The priority classifier's accuracy was validated with a **spatial group-holdout** (test-set GPS locations never seen in training) to confirm it's learning a genuine spatial/temporal pattern rather than memorizing repeated incident locations — accuracy held at 0.8877 / AUC 0.9485 under that harder split.
+
+**Why the priority model is deliberately regularized:** an earlier, deeper/less-regularized version reached AUC 0.99, but at the cost of being extremely overconfident on almost any input (96%+ confidence on the large majority of test predictions and random new coordinates alike) — a symptom of the model carving out very fine-grained, high-purity spatial regions rather than a genuinely graded sense of uncertainty. Shrinking `max_depth` to 3 and adding `reg_lambda`/`min_child_weight` trades a few points of raw accuracy for a model whose confidence actually varies with how genuinely clear-cut an incident is.
 
 **Imbalance handling:** `scale_pos_weight` (tuned via a small hyperparameter sweep) passed to the XGBoost closure model.
 **Leakage prevention:** `priority_score` and `closure_score` excluded from classifier features; `severity_index` used only for duration regression.
