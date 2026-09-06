@@ -1,4 +1,4 @@
-# Bengaluru Event-Driven Traffic Congestion — Response Recommender
+# Bengaluru Event-Driven Traffic Congestion - Response Recommender
 
 > **Gridlock Hackathon 2.0 · Theme 2 · Event-Driven Congestion**
 > An ML-powered dashboard that predicts incident impact and recommends manpower, barricading, and police station deployment in real time.
