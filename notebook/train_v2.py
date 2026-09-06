@@ -1,5 +1,5 @@
 """
-Bengaluru Traffic Congestion — v2 training pipeline.
+Bengaluru Traffic Congestion — v2 training pipeline (XG Boost).
 
 Cleans the raw ASTRAM incident CSV, engineers a feature set (circular time
 encoding, haversine distance to named hotspots, interaction features), and
