@@ -1,12 +1,8 @@
-import folium
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
-from folium.plugins import HeatMap
 
 st.set_page_config(page_title="Bengaluru Event-Driven Congestion", page_icon="🚦", layout="wide")
-
 
 @st.cache_resource
 def load_bundle():
@@ -154,43 +150,9 @@ def badge(text, color):
     return f'<span style="background:{color};color:white;padding:4px 14px;border-radius:14px;font-weight:600;">{text}</span>'
 
 
-def confidence_gauge(label, value):
-    pct = int(round(value * 100))
-    color = '#2ecc71' if pct >= 80 else '#f39c12' if pct >= 60 else '#e74c3c'
-    st.markdown(f"**{label}**")
-    st.markdown(
-        f"""<div style="background:#eee;border-radius:8px;height:14px;width:100%;">
-        <div style="background:{color};width:{pct}%;height:14px;border-radius:8px;"></div>
-        </div><span style="font-size:0.85em;">{pct}% confidence</span>""",
-        unsafe_allow_html=True,
-    )
-
-
-def render_hotspot_map(lat, lon, corridor):
-    m = folium.Map(location=[lat, lon], zoom_start=12, tiles='OpenStreetMap')
-    HeatMap(
-        [[hlat, hlon] for hlat, hlon in HOTSPOTS.values()],
-        radius=35, blur=25, min_opacity=0.35,
-        gradient={0.2: 'blue', 0.5: 'yellow', 0.8: 'orange', 1.0: 'red'},
-    ).add_to(m)
-    for name, (hlat, hlon) in HOTSPOTS.items():
-        folium.Marker(
-            [hlat, hlon],
-            popup=name.replace('_', ' ').title(),
-            icon=folium.Icon(color='orange', icon='exclamation-sign'),
-        ).add_to(m)
-    folium.Marker(
-        [lat, lon],
-        popup=f"Incident (corridor: {corridor})",
-        icon=folium.Icon(color='red', icon='info-sign'),
-    ).add_to(m)
-    return m
-
-
 # ---------------- UI ----------------
 st.title("🚦 Bengaluru Event-Driven Congestion — Response Recommender")
-st.caption("Gridlock Hackathon 2.0 · Theme 2 · XGBoost models predict incident impact and "
-           "recommend manpower, barricading, and station deployment")
+st.caption("Gridlock Hackathon 2.0 · Theme 2 · Predicts incident impact and recommends manpower, barricading, and station deployment")
 
 col_form, col_result = st.columns([1, 1.4])
 
@@ -203,8 +165,8 @@ with col_form:
     c1, c2, c3 = st.columns(3)
     hour = c1.slider("Hour", 0, 23, 9)
     day_of_week = c2.selectbox("Day", list(range(7)),
-                                format_func=lambda x: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][x])
-    month_num = c3.selectbox("Month", list(range(1, 13)), index=2)
+                                format_func=lambda x: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][x])
+    month_num = c3.selectbox("Month", list(range(1,13)), index=2)
     zone = st.selectbox("Zone (optional — leave Unknown to auto-detect)",
                          ['Unknown'] + sorted(B['zone_station_map'].keys()))
     submit = st.button("🔍 Get Recommendation", type="primary", use_container_width=True)
@@ -219,43 +181,25 @@ with col_result:
         st.subheader("Recommendation")
         m1, m2, m3, m4 = st.columns(4)
         m1.markdown("**Priority**<br>" + badge(r['predicted_priority'],
-                    '#e74c3c' if r['predicted_priority'] == 'High' else '#3498db'), unsafe_allow_html=True)
+                    '#e74c3c' if r['predicted_priority']=='High' else '#3498db'), unsafe_allow_html=True)
         m2.markdown("**Road Closure**<br>" + badge('YES' if r['predicted_road_closure'] else 'No',
                     '#e74c3c' if r['predicted_road_closure'] else '#2ecc71'), unsafe_allow_html=True)
         m3.markdown("**Risk Level**<br>" + badge(r['risk_level'], RISK_COLORS[r['risk_level']]), unsafe_allow_html=True)
         m4.metric("Est. Duration", f"{r['predicted_duration_hours']} hrs")
 
         st.write("")
-        g1, g2 = st.columns(2)
-        with g1:
-            confidence_gauge("Priority confidence", r['priority_confidence'])
-        with g2:
-            confidence_gauge("Closure confidence", r['closure_confidence'])
-
-        st.write("")
         d1, d2, d3 = st.columns(3)
         d1.metric("Recommended Officers", r['recommended_officers'])
         d2.metric("Barricading Needed", "Yes" if r['recommend_barricading'] else "No")
-        d3.metric("Severity Score", f"{r['estimated_severity_score']}/11")
+        d3.metric("Priority Confidence", f"{r['priority_confidence']*100:.0f}%")
 
         st.write("")
         st.markdown(f"**Deploy from:** {r['recommended_police_station']}  \n"
                     f"*({r['station_assignment_method']})*")
         st.markdown(f"**Detected corridor:** {r['detected_corridor']}")
+        st.markdown(f"**Closure probability:** {r['closure_probability']*100:.1f}%  ·  "
+                    f"**Severity score:** {r['estimated_severity_score']}/11")
 
-        st.write("")
-        st.markdown("**Distance to known congestion hotspots**")
-        st.dataframe(
-            pd.DataFrame(
-                sorted(r['nearest_hotspot_km'].items(), key=lambda x: x[1]),
-                columns=['Hotspot', 'Distance (km)'],
-            ),
-            hide_index=True, use_container_width=True,
-        )
-
-        st.write("")
-        st.markdown("**Live hotspot map**")
-        fmap = render_hotspot_map(lat, lon, r['detected_corridor'])
-        components.html(fmap._repr_html_(), height=420)
+        st.map(pd.DataFrame({'lat':[lat], 'lon':[lon]}), zoom=12)
     else:
         st.info("Fill in the event details and click **Get Recommendation**.")

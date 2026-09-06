@@ -12,16 +12,19 @@ Your resume says: *"Engineered 3 XGBoost models with circular time encoding, hav
 |---|---|---|
 | 3 XGBoost models | `models/recommendation_engine_bundle_v2.pkl` contains `XGBClassifier` (priority), `XGBClassifier` (closure), `XGBRegressor` (duration) — confirmed by loading the bundle and checking `type()`. | ✅ |
 | Circular time encoding | `hour_sin/cos`, `month_sin/cos`, `dow_sin/cos` — `add_circular_time_features()` in `notebook/train_v2.py`, mirrored in `app/app_v2.py`. | ✅ |
-| Haversine hotspot distances | 6 named hotspots (MG Road, Silk Board, Hebbal, Marathahalli, Whitefield, Electronic City) — `add_hotspot_distances()`, stored as `hotspots` in the bundle, used both as model features and as the live map overlay. | ✅ |
+| Haversine hotspot distances | 6 named hotspots (MG Road, Silk Board, Hebbal, Marathahalli, Whitefield, Electronic City) — `add_hotspot_distances()`, stored as `hotspots` in the bundle. Used as **model input features** at both training and inference time. | ✅ (as features — see note below on the map) |
 | Interaction features | `peak_x_cause` (`is_peak_hour × cause_score`), `weekend_x_cause` (`is_weekend × cause_score`) — `add_interaction_features()`. | ✅ |
 | AUC 0.98 | Priority classifier's real, measured test-set ROC-AUC is **0.9519** (`models/v2_metrics.json`). This is the one resume number worth knowing precisely before an interview: the model was deliberately regularized (see below) to fix a genuine overconfidence problem, which cost some raw AUC. Closure's AUC is much lower (0.7724 — a harder, imbalanced problem) and duration is regression (no AUC). If asked "AUC of what, exactly," the precise answer is "the priority classifier, and the honest number is 0.95, not 0.98." | ⚠️ resume rounds up — know the real number (0.95) and why |
 | 89% avg confidence | Real measured average (`mean(max(p, 1-p))` across the priority + closure test sets) is **80.8%**. This dropped from an earlier build's 88.4% on purpose — that earlier version was returning 96%+ confidence on the large majority of inputs (including ones with no real historical precedent), which is a red flag for a live demo, not a strength. | ⚠️ resume overstates by ~8 points — know why, and be ready to explain it as a deliberate trade-off |
 | GitHub Actions | `.github/workflows/ci.yml` — compiles `app_v2.py`/`train_v2.py` and runs a smoke test that loads the bundle and calls `recommend_resources()`. | ✅ |
 | Ensemble learning | XGBoost *is* ensemble learning — gradient-boosted decision trees, a sequential/additive ensemble method. | ✅ |
-| Folium live map with hotspot overlays | `app/app_v2.py`'s `render_hotspot_map()` — a real `folium.Map` with a `HeatMap` layer over the 6 hotspots, markers for each hotspot and the submitted incident, embedded via `streamlit.components.v1.html`. | ✅ |
+| Folium live map with hotspot overlays | **Not currently true of the running app.** `app/app_v2.py`'s UI is deliberately kept identical to the original hackathon build — plain badges and `st.metric` values, a single-point `st.map()`, no embedded Folium widget. The Folium artifact that does exist is `assets/bengaluru_hotspot_map.html`, a **static, pre-generated** heatmap of the full historical dataset — real, but not a live, per-incident, in-app map. | ⚠️ **discrepancy — see callout below** |
 | Auto-detects nearest corridor via GPS, outputs officer count / station / barricading plan | `nearest_corridor()`, `manpower_map`, `zone_station_map` / `nearest_police_station()`. | ✅ |
 
-**One thing worth being ready for, and this one genuinely is worth knowing precisely:** an earlier build of the priority model reached AUC 0.99 — but at the cost of returning 96%+ confidence on the large majority of predictions, even for essentially random, made-up GPS coordinates typed into a live demo. That's not a strength, it's a red flag — a model that's *always* extremely sure isn't expressing real uncertainty, it's carving the map into tiny, high-purity regions and reporting near-100% on whichever one a query lands in. The deployed model is deliberately regularized (shallower trees, `reg_lambda`, `min_child_weight`) to trade some of that raw AUC (0.95 vs 0.99) for confidence that actually varies with how genuinely clear-cut an incident is. See Part 5, Concepts 8 and 9 for the full story — both the leakage-style validation and the overconfidence fix are strong, specific things to say in this interview.
+**Two things worth being ready for, both genuinely worth knowing precisely, not glossing over:**
+
+1. **The Folium claim is currently the weakest link between resume and repo.** The UI was deliberately reverted to match the original hackathon build exactly (a specific, explicit instruction — the interface a dispatcher sees was never supposed to change, only the model layer underneath it). That means the live, per-incident, hotspot-overlaid Folium map I'd built at one point is **not in the shipped app**. If an interviewer opens `app/app_v2.py` and asks to see the map, the honest answer is: "the interactive Folium visualization is `assets/bengaluru_hotspot_map.html`, a static heatmap of the full historical dataset generated during EDA — the live app itself uses Streamlit's built-in single-point map, not an embedded Folium widget." That is a real, defensible answer, but it is not what the resume line implies, and you should say so plainly rather than let it surface as a surprise.
+2. An earlier build of the priority model reached AUC 0.99 — but at the cost of returning 96%+ confidence on the large majority of predictions, even for essentially random, made-up GPS coordinates. That's not a strength, it's a red flag — a model that's *always* extremely sure isn't expressing real uncertainty. The deployed model is deliberately regularized (shallower trees, `reg_lambda`, `min_child_weight`) to trade some of that raw AUC (0.95 vs 0.99) for confidence that actually varies with how genuinely clear-cut an incident is. See Part 5, Concepts 8 and 9.
 
 ---
 
@@ -48,7 +51,7 @@ Opens a Streamlit web form and enters: event type (planned/unplanned), cause (fr
 6. It combines the *cause*, *event type*, *predicted* priority, and *predicted* closure into a hand-built "severity score" (2–11) — never the true labels, since those don't exist yet for a new event.
 7. It feeds that severity score into the **duration model** to estimate how many hours the incident will last (trained on `log1p(duration_hrs)`, inverted with `expm1` at inference).
 8. It looks up recommended officer count from a fixed severity→manpower table, and recommends a police station either from a historical zone→station lookup or, if the zone is unknown, from nearest-by-GPS.
-9. All of this is rendered as colored badges, confidence gauges, a hotspot-distance table, and a live Folium map showing the incident, the 6 hotspots, and a heat overlay.
+9. All of this is rendered as colored badges and `st.metric` values, plus a single-point `st.map()` for the incident location — the UI is deliberately kept identical to the original hackathon build; the hotspot distances and circular time features feed the models but aren't shown in the interface.
 
 ### How does data move through the system?
 There is no live "traffic data feed," no database, and no backend API server. This is a **single-process Streamlit app**: user input → in-memory Python function (`recommend_resources`) → pre-trained XGBoost models loaded from a `.pkl` file on local disk → results rendered directly back into the same page. Training happens offline, via `python notebook/train_v2.py` against a local CSV (`Dataset/Hack_dataset.csv`, gitignored — see Part 3) — that produces the `.pkl` bundle the app ships with.
@@ -56,7 +59,7 @@ There is no live "traffic data feed," no database, and no backend API server. Th
 ### What are the major components?
 1. **`notebook/train_v2.py`** — the entire offline pipeline: cleaning, feature engineering, XGBoost training/evaluation for all three tasks, bundle export, and confusion-matrix/feature-importance PNG generation.
 2. **The model bundle** (`models/recommendation_engine_bundle_v2.pkl`) — a `joblib`-serialized dict containing the three trained XGBoost models, the exact feature-column lists each expects, and lookup tables (cause→score, severity→manpower, zone→station, corridor/station GPS tables, hotspot coordinates).
-3. **The Streamlit app** (`app/app_v2.py`) — the online/inference-time half. Loads the bundle, exposes a form, runs the same feature-engineering logic used at training time on a single new event, and renders results including the live Folium map.
+3. **The Streamlit app** (`app/app_v2.py`) — the online/inference-time half. Loads the bundle, exposes a form, runs the same feature-engineering logic used at training time on a single new event, and renders results as the original hackathon UI (badges, `st.metric`, a single-point map) — deliberately unchanged from before the model layer was rebuilt.
 4. **`.github/workflows/ci.yml`** — GitHub Actions CI: installs dependencies, compiles both Python entry points, and runs a smoke test that loads the real bundle and calls `recommend_resources()` end-to-end.
 5. **EDA assets** (`assets/*.png`, `assets/bengaluru_hotspot_map.html`) — visual outputs. Three of the model-specific plots (`model1_confusion_matrix.png`, `model1_feature_importance.png`, `model2_confusion_matrix.png`) are regenerated directly by `train_v2.py` from the real deployed XGBoost models, so they always reflect what's actually shipped.
 
@@ -67,7 +70,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 2. **Streamlit reruns `app_v2.py` top-to-bottom** with the new widget values in scope.
 3. **"Backend" logic:** `recommend_resources(event)` is called with a plain dict of the form inputs.
 4. **"Model layer":** the function reads from the in-memory `B` dict (the loaded bundle) — three XGBoost models plus several pandas lookup tables — no network call, no SQL, no external API.
-5. **Response:** the function returns a dict of predictions; the same script renders that dict as badges, gauges, a metrics grid, a hotspot-distance table, and an embedded Folium map.
+5. **Response:** the function returns a dict of predictions; the same script renders that dict as badges and a metrics grid, plus a single-point map — the original UI, untouched.
 
 ### Simple numbered end-to-end flow
 1. Operator opens the Streamlit app (`streamlit run app/app_v2.py`).
@@ -83,7 +86,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 11. `duration_model.predict()` (XGBoost) runs on log-transformed target space; the result is exponentiated back (`np.expm1`) to get hours.
 12. Officer count comes from a fixed `manpower_map` lookup keyed by severity score.
 13. Police station is either the historical mode station for the given zone, or — if zone is "Unknown" — the nearest station by GPS distance (k=5 nearest, mode).
-14. All results are packaged into a dict and rendered as badges, confidence gauges, `st.metric` boxes, a distance-to-hotspot table, and a live Folium map (heatmap layer over the 6 hotspots + markers for each hotspot and the submitted incident).
+14. All results are packaged into a dict and rendered as badges, `st.metric` boxes, and a single-point `st.map()` — the original hackathon UI, deliberately left unchanged.
 
 ---
 
@@ -91,7 +94,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 
 ### "Tell me about your project."
 
-> "This was a hackathon project — Gridlock Hackathon 2.0 — where the theme was event-driven traffic congestion in Bengaluru. We had a historical dataset of about 8,170 real traffic incidents from the ASTRAM system — accidents, VIP movements, protests, potholes — with fields like cause, GPS location, priority, whether a road closure was needed, and how long the incident lasted. A dispatcher currently has to eyeball a new incident and guess how serious it is and how many officers to send. We built three XGBoost models — a priority classifier, a road-closure classifier, and a duration regressor — on top of an engineered feature set: circular sin/cos time encoding so the model understands hour 23 and hour 0 are adjacent, haversine distance to six known Bengaluru congestion hotspots, and interaction terms like peak-hour × cause-severity. All of it sits behind a Streamlit dashboard that also auto-detects the nearest road corridor from GPS, recommends an officer count and police station, and renders a live Folium map with the hotspots overlaid.
+> "This was a hackathon project — Gridlock Hackathon 2.0 — where the theme was event-driven traffic congestion in Bengaluru. We had a historical dataset of about 8,170 real traffic incidents from the ASTRAM system — accidents, VIP movements, protests, potholes — with fields like cause, GPS location, priority, whether a road closure was needed, and how long the incident lasted. A dispatcher currently has to eyeball a new incident and guess how serious it is and how many officers to send. We built three XGBoost models — a priority classifier, a road-closure classifier, and a duration regressor — on top of an engineered feature set: circular sin/cos time encoding so the model understands hour 23 and hour 0 are adjacent, haversine distance to six known Bengaluru congestion hotspots, and interaction terms like peak-hour × cause-severity. All of it sits behind the original hackathon Streamlit dashboard, which also auto-detects the nearest road corridor from GPS and recommends an officer count and police station — I kept that interface exactly as it was rather than redesigning it, since the actual engineering work was in the model layer underneath it, not the UI.
 >
 > The priority classifier is the standout result — ROC-AUC 0.95, Accuracy 90%. I validated the underlying pattern with a spatial holdout — trained on one set of GPS locations, tested on a completely disjoint set the model had never seen — and accuracy held at 89%, AUC at 0.95, so it's genuinely learning a spatial+temporal pattern, not memorizing repeated incident locations. An earlier version of this model actually scored higher, AUC 0.99, but I deliberately walked that back: it was returning 96%+ confidence on nearly every single input, including implausible or made-up ones, which is a symptom of overfitting to fine-grained location clusters rather than real calibrated uncertainty. Regularizing it down cost a few points of AUC but bought a model whose confidence you can actually trust when it's high or take seriously when it's not.
 >
@@ -112,12 +115,12 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 
 | Technology | What it does | Why we chose it |
 |---|---|---|
-| **Python** | Language for the entire project. | De facto standard for data science/ML; every library here (pandas, XGBoost, Streamlit, folium) is Python-native. |
+| **Python** | Language for the entire project. | De facto standard for data science/ML; every library here (pandas, XGBoost, Streamlit) is Python-native. |
 | **pandas / numpy** | Data loading, cleaning, feature engineering (circular encoding, haversine math, interaction terms), one-hot encoding (`pd.get_dummies`). | Standard tooling for tabular data at this scale (~8K rows). |
 | **XGBoost** | `XGBClassifier` (priority, closure) and `XGBRegressor` (duration) — all three deployed models. | Gradient-boosted trees handle the mixed categorical/numeric, moderately nonlinear feature set well; `scale_pos_weight` directly addresses the closure model's 7.3%-positive-class imbalance without resampling. This is also literally the "ensemble learning" on the resume — boosting is an additive/sequential ensemble method. |
 | **scikit-learn** | `train_test_split`, `GroupShuffleSplit` (spatial validation), metrics (`accuracy_score`, `f1_score`, `roc_auc_score`, `precision_recall_curve`, `mean_absolute_error`, `r2_score`). | Standard evaluation tooling, used throughout `train_v2.py`. |
-| **Streamlit** | The entire UI — form widgets, buttons, metrics, badges, confidence gauges, embedded map. | Fast to ship for a hackathon deadline with no separate frontend build step. **Trade-off:** reruns the entire script top-to-bottom on every interaction; fine at this scale, would need addressing at real production scale (Part 9). |
-| **folium** (+ `folium.plugins.HeatMap`) | Renders the live hotspot map inside the running app (`render_hotspot_map()`) — a heatmap layer over the 6 named hotspots plus markers for each hotspot and the submitted incident, embedded via `st.components.v1.html(fmap._repr_html_(), height=420)`. | A `folium.Map` renders to HTML directly, so embedding it in Streamlit needs nothing beyond `streamlit.components.v1.html` — no extra `streamlit-folium` dependency. |
+| **Streamlit** | The entire UI — form widgets, buttons, `st.metric` values, badges, a single-point map. | Fast to ship for a hackathon deadline with no separate frontend build step. This UI is deliberately the *original* one, kept intentionally unchanged even as the model layer was rebuilt underneath it. **Trade-off:** reruns the entire script top-to-bottom on every interaction; fine at this scale, would need addressing at real production scale (Part 9). |
+| **folium** | Used to generate `assets/bengaluru_hotspot_map.html` — a **static, pre-generated** heatmap of the full historical incident dataset, produced during EDA, not by any script currently in the repo (its source notebook was superseded by `train_v2.py`). **Not currently imported by `app_v2.py` or `train_v2.py`** — it remains in `requirements.txt` because that static asset exists and the resume names Folium as part of the stack, but be precise if asked: there is no live, in-app Folium map right now. | Kept for the historical EDA artifact and resume accuracy on the "Folium" line specifically — worth naming this precisely rather than implying it's a live app feature. |
 | **joblib** | Serializing/deserializing the trained models and the bundle dict. | Standard for persisting scikit-learn/XGBoost objects. **Security caveat:** `joblib.load` is functionally `pickle.load` — see Part 10. |
 | **matplotlib / seaborn** | EDA charts under `assets/*.png`, plus the confusion-matrix/feature-importance plots regenerated from the real deployed XGBoost models. | Standard plotting; one-time analysis outputs, not a live dashboard. |
 | **GitHub Actions** | `.github/workflows/ci.yml` — installs `requirements.txt`, compiles `app/app_v2.py` and `notebook/train_v2.py`, then loads the actual bundle and runs `recommend_resources()` as a smoke test. | Cheap, real CI signal that the app and the shipped bundle stay compatible — catches "someone changed a feature name and the app silently breaks." |
@@ -136,9 +139,8 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 - `haversine_km`, `nearest_police_station`, `nearest_corridor` — vectorized great-circle distance, k=5-nearest-then-mode denoising.
 - `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app_v2.py` and `train_v2.py`. This symmetry is deliberate: it's what keeps the app from silently drifting out of sync with what the models were actually trained on.
 - `encode_single_event` — one-hot encodes a single row, then reindexes against the model's captured training-time column list, zero-filling anything missing. The standard fix for "one-hot encoding a single row produces different columns than training."
-- `recommend_resources(event)` — orchestrates the full pipeline: defaults missing fields → computes engineered features → detects corridor → runs priority model → runs closure model (tuned threshold) → computes severity from *predictions* → runs duration model (log-space, inverted) → looks up manpower and station.
-- `confidence_gauge()` — renders a colored horizontal bar (green ≥80%, orange ≥60%, red below) for both priority and closure confidence.
-- `render_hotspot_map()` — builds a `folium.Map`, adds a `HeatMap` layer over the 6 hotspot coordinates plus a marker per hotspot and one for the submitted incident, and returns the map object for embedding.
+- `recommend_resources(event)` — orchestrates the full pipeline: defaults missing fields → computes engineered features → detects corridor → runs priority model → runs closure model (tuned threshold) → computes severity from *predictions* → runs duration model (log-space, inverted) → looks up manpower and station. Returns `nearest_hotspot_km` in its result dict too, even though the current UI doesn't display it — the value is there for anyone extending the UI later, computed as a natural byproduct of the feature engineering.
+- **UI section** — deliberately identical to the pre-XGBoost hackathon build: `badge()` for colored pills, `st.metric` for duration/officers/barricading/priority-confidence, plain markdown for station/corridor/closure-probability/severity, and a single-point `st.map()`. No confidence-gauge widgets, no hotspot-distance table, no embedded Folium map — this was an explicit instruction to change the model layer without touching the interface a dispatcher sees.
 
 ---
 
@@ -200,12 +202,12 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 ---
 
 ### `assets/` (EDA outputs)
-**Purpose:** Visual outputs — distribution/time-pattern/severity/corridor-zone charts, the standalone `bengaluru_hotspot_map.html` (a Folium heatmap of the full historical incident dataset — distinct from the app's live per-incident map), and the three model-diagnostic PNGs regenerated by `train_v2.py`.
+**Purpose:** Visual outputs — distribution/time-pattern/severity/corridor-zone charts, the standalone `bengaluru_hotspot_map.html` (a static Folium heatmap of the full historical incident dataset, generated during the original EDA — the app itself has no live map), and the three model-diagnostic PNGs regenerated by `train_v2.py`.
 
 ---
 
 ### `requirements.txt`
-Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`, `xgboost>=1.7`, `streamlit>=1.28`, `joblib>=1.3`, `folium>=0.14`, `seaborn>=0.12`, `matplotlib>=3.7`. Every one of these is genuinely imported somewhere in the repo — nothing here is a dead/unused dependency.
+Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`, `xgboost>=1.7`, `streamlit>=1.28`, `joblib>=1.3`, `folium>=0.14`, `seaborn>=0.12`, `matplotlib>=3.7`. One honest gap: `folium` is listed but, as of the current UI, not imported by any script that actually runs (`app_v2.py` or `train_v2.py`) — it's kept because the static `assets/bengaluru_hotspot_map.html` exists and the resume names Folium in the stack. If asked to justify every line in this file, that's the one to be upfront about rather than claim it's actively used.
 
 ---
 
@@ -218,7 +220,7 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 4. `event = {...}` dict assembled from widget values.
 5. `recommend_resources(event)` runs synchronously, in-process.
 6. Inside: defaults filled → feature block computed (hotspot distances, circular time, interactions) → nearest corridor detected → priority predicted (XGBoost) → closure predicted (XGBoost, tuned threshold) → severity computed from predictions → duration predicted (XGBoost, log-space, inverted) → manpower looked up → station resolved.
-7. Result dict rendered as badges, confidence gauges, metrics, a hotspot-distance table, and a live Folium map.
+7. Result dict rendered as badges and `st.metric` values, plus a single-point `st.map()` — the original UI, unchanged.
 8. Nothing is persisted — no history, no database write.
 
 ### Flow 2 — Model training workflow (offline, one-time, reproducible)
@@ -347,8 +349,9 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 #### Q10. Why Streamlit instead of React/Vue?
 **Strong answer:** "The core skill set was ML/Python, and the goal was a demo within a hackathon timebox. The cost is customizability — constrained to Streamlit's widget set and whole-script-rerun execution model."
 
-#### Q11. How does the live Folium map actually get into a Streamlit page?
-**Strong answer:** "A `folium.Map` object has a `_repr_html_()` method that returns a full HTML document for the map; I pass that straight into `streamlit.components.v1.html()`, which renders arbitrary HTML/JS in an iframe. No extra `streamlit-folium` dependency needed — just the two libraries already in `requirements.txt`."
+#### Q11. Your resume mentions a Folium live map with hotspot overlays — show me.
+**What the interviewer is asking:** Will you be straightforward about a gap between resume and repo, or fumble trying to find something that isn't there?
+**Strong answer:** "The live app doesn't have an embedded Folium map right now — its UI was deliberately kept identical to the original hackathon build, which used Streamlit's built-in `st.map()` for a single point. The real Folium artifact in this repo is `assets/bengaluru_hotspot_map.html`, a static heatmap of the full historical incident dataset generated during EDA. If I were to add a live, per-incident Folium map to the app, the mechanism is straightforward — a `folium.Map` object has a `_repr_html_()` method that returns full HTML, which `streamlit.components.v1.html()` can render directly in an iframe, no extra `streamlit-folium` dependency needed. That's actually something I'd built at one point and then deliberately backed out of, specifically to keep the UI unchanged while the model layer was being reworked."
 
 #### Q12. How is state managed in this app?
 **Strong answer:** "Almost none, deliberately. Streamlit reruns the whole script on every interaction; the only things that persist across reruns are the cached bundle and Streamlit's own internal widget state. No `st.session_state` usage — every recommendation is computed fresh."
@@ -492,7 +495,8 @@ Queues/background workers, file storage, rate limiting, observability — none e
 
 > "Recommendation engine auto-detects nearest corridor via GPS and outputs officer count, deployment station, barricading plan, and an interactive Folium live map with hotspot overlays."
 
-**How to defend it:** `app/app_v2.py`'s `nearest_corridor()`, `manpower_map` lookup, `zone_station_map`/`nearest_police_station()`, and `render_hotspot_map()`. Be ready to explain the k=5-nearest-then-mode denoising pattern and how the Folium map is embedded (`_repr_html_()` into `st.components.v1.html`, no extra dependency).
+**How to defend it — the corridor/officer/station/barricading part is fully true:** `app/app_v2.py`'s `nearest_corridor()`, `manpower_map` lookup, and `zone_station_map`/`nearest_police_station()`. Be ready to explain the k=5-nearest-then-mode denoising pattern.
+**The Folium live map part is not currently true of the shipped app — know this before it comes up.** The UI is deliberately unchanged from the original hackathon build (single-point `st.map()`, no embedded Folium widget). The real Folium artifact is `assets/bengaluru_hotspot_map.html`, a static full-dataset heatmap from EDA, not a live per-incident map. If pressed, the honest answer is exactly that — don't imply the live map exists.
 
 **Also now true and defensible, if asked directly:** "GitHub Actions" (`.github/workflows/ci.yml`, real, runs a real smoke test) and "Ensemble learning" (XGBoost is boosted-tree ensemble learning, literally).
 
@@ -504,7 +508,7 @@ Queues/background workers, file storage, rate limiting, observability — none e
 
 | Question | One-line answer |
 |---|---|
-| What does the project do? | Predicts a Bengaluru traffic incident's priority, road-closure need, and duration via three XGBoost models, then recommends officer count and police station via a Streamlit dashboard with a live hotspot map. |
+| What does the project do? | Predicts a Bengaluru traffic incident's priority, road-closure need, and duration via three XGBoost models, then recommends officer count and police station via the original Streamlit dashboard (unchanged UI, rebuilt model layer). |
 | Why XGBoost? | `scale_pos_weight` cleanly handles the closure model's severe imbalance, and gradient-boosted trees handle the mixed categorical/numeric, moderately nonlinear feature set well. |
 | Biggest result? | Priority classifier: ROC-AUC 0.9519, validated with a spatial holdout (AUC 0.9485) to rule out location-memorization. |
 | Real number vs resume number? | Resume says AUC 0.98 / 89% confidence; real, current numbers are AUC 0.9519 / 80.8% confidence — deliberately lower after fixing an overconfidence problem (Concept 9). |
@@ -528,7 +532,7 @@ Queues/background workers, file storage, rate limiting, observability — none e
 - `encode_single_event(...)` — reindex-based one-hot encoding for a single live row.
 - `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app/app_v2.py` and `notebook/train_v2.py`.
 - `haversine_km`, `nearest_corridor`, `nearest_police_station` — geospatial lookups.
-- `render_hotspot_map`, `confidence_gauge` — the map/UI helpers.
+- `badge()` — the only UI helper; renders a colored pill for the priority/closure/risk badges. (No gauge or map-rendering helpers exist in the current UI.)
 - `load_bundle()` — `@st.cache_resource`-decorated bundle loader.
 
 **Important "tables":**
@@ -555,7 +559,7 @@ Queues/background workers, file storage, rate limiting, observability — none e
 
 ## FINAL SECTION: 60-SECOND PROJECT ANSWER
 
-"For Gridlock Hackathon 2.0, we built a traffic-incident response recommender for Bengaluru using about 8,170 real historical incidents from the ASTRAM system. Three XGBoost models handle priority classification, road-closure classification, and duration regression, sitting on top of an engineered feature set — circular sin/cos time encoding, haversine distance to six named congestion hotspots, and interaction terms combining peak-hour and cause severity. All of it's wrapped in a Streamlit dashboard that also auto-detects the nearest road corridor from GPS, recommends an officer count and police station, and shows a live Folium map with the hotspots overlaid.
+"For Gridlock Hackathon 2.0, we built a traffic-incident response recommender for Bengaluru using about 8,170 real historical incidents from the ASTRAM system. Three XGBoost models handle priority classification, road-closure classification, and duration regression, sitting on top of an engineered feature set — circular sin/cos time encoding, haversine distance to six named congestion hotspots, and interaction terms combining peak-hour and cause severity. All of it's wrapped in the original hackathon Streamlit dashboard, which auto-detects the nearest road corridor from GPS and recommends an officer count and police station — I deliberately kept that interface as-is while rebuilding everything underneath it, rather than redesigning the UI at the same time as the model layer.
 
 The priority classifier is the headline result — ROC-AUC 0.95, accuracy 90%. I validated it with a spatial holdout, training on one set of locations and testing on GPS coordinates the model had genuinely never seen, and the result held, which told me it's a real spatial pattern, not memorized addresses. An earlier version of that same model actually scored higher — AUC 0.99 — but I walked it back on purpose: it turned out to be returning 96%-plus confidence on almost every input, even ones with no real basis for that much certainty, which is overfitting dressed up as accuracy. Regularizing it down cost a few points on paper but bought a confidence number you can actually trust. The part I'd most want to talk through, though, is a bug we caught before trusting any of these numbers in the first place: we'd built a severity score directly from the same priority and closure labels we were trying to predict, caught that it was leaking the answer into two of the three models, and fixed it. That same habit — being suspicious of a good-looking metric before being proud of it — is what caught both the leakage and the overconfidence later. Not every model here is a clean win, either — the closure classifier, working with only 580 historical positive examples, has a much weaker F1 than priority, and I can walk through exactly why that one's a harder problem."
 

@@ -130,7 +130,7 @@ Serialised with `joblib` by `notebook/train_v2.py`, the bundle contains:
 - `closure_threshold` (optimised for class imbalance via precision-recall sweep)
 - `cause_score_map`, `manpower_map`
 - `zone_station_map`, `station_coords`, `corridor_coords`
-- `hotspots` — lat/lon of the 6 named congestion points used for haversine distance features and the app's live map overlay
+- `hotspots` — lat/lon of the 6 named congestion points used for haversine distance features (not currently rendered in the app UI — see below)
 
 ---
 
@@ -138,17 +138,19 @@ Serialised with `joblib` by `notebook/train_v2.py`, the bundle contains:
 
 ### What It Does
 1. Accepts an incoming traffic event (type, cause, GPS, time, zone)
-2. Auto-detects the nearest **corridor** via haversine distance, and computes distance to each named hotspot
+2. Auto-detects the nearest **corridor** via haversine distance (hotspot distances are computed internally as model features, not displayed)
 3. Runs all three XGBoost models and computes a **severity score** (2–11)
 4. Outputs:
    - Risk level (Low / Medium / High / Critical)
-   - Predicted priority + confidence gauge
-   - Road closure prediction + confidence gauge
+   - Predicted priority + confidence
+   - Road closure prediction + closure probability
    - Estimated duration
    - Recommended officer count
    - Recommended police station (zone lookup or GPS nearest-neighbour)
    - Barricading recommendation
-   - Distance-to-hotspot table + live Folium map with hotspot overlay
+   - A single-point map of the incident location (`st.map`)
+
+The UI is intentionally kept exactly as the original hackathon build — plain badges and `st.metric` values, no confidence-gauge widgets, hotspot-distance table, or embedded Folium map. Only the model layer underneath it (feature engineering + XGBoost) changed; the interface a dispatcher sees did not.
 
 ---
 
