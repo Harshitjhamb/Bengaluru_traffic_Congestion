@@ -218,6 +218,7 @@ X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(
 neg_p, pos_p = (y_train_f == 0).sum(), (y_train_f == 1).sum()
 priority_model = XGBClassifier(
     n_estimators=150, max_depth=3, learning_rate=0.1, reg_lambda=5, min_child_weight=10,
+    colsample_bytree=0.5, colsample_bylevel=0.5,
     scale_pos_weight=neg_p / pos_p, random_state=RANDOM_STATE,
     eval_metric="logloss", n_jobs=-1,
 )
