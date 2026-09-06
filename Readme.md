@@ -27,7 +27,7 @@ Bengaluru_Traffic_Congestion-main/
 │   └── ci.yml                            # GitHub Actions — compile check + bundle/app smoke test
 │
 ├── app/
-│   └── app.py                            # Streamlit dashboard — XGBoost + feature engineering
+│   └── app_v2.py                            # Streamlit dashboard — XGBoost + feature engineering
 │
 ├── assets/                                  # EDA & model visualisation outputs
 │   ├── bengaluru_hotspot_map.html           # Interactive Folium heatmap of all historical incidents
@@ -44,7 +44,7 @@ Bengaluru_Traffic_Congestion-main/
 ├── Dataset/                               # gitignored — place Hack_dataset.csv here to train
 │
 ├── models/
-│   ├── recommendation_engine_bundle_v2.pkl   # Trained bundle — XGBoost × 3 (what app.py loads)
+│   ├── recommendation_engine_bundle_v2.pkl   # Trained bundle — XGBoost × 3 (what app_v2.py loads)
 │   └── v2_metrics.json                       # Real, computed evaluation numbers
 │
 ├── notebook/
@@ -132,7 +132,7 @@ Serialised with `joblib` by `notebook/train_v2.py`, the bundle contains:
 
 ---
 
-## Streamlit App (`app/app.py`)
+## Streamlit App (`app/app_v2.py`)
 
 ### What It Does
 1. Accepts an incoming traffic event (type, cause, GPS, time, zone)
@@ -176,7 +176,7 @@ pip install -r requirements.txt
 
 ### 4. Run the Streamlit app
 ```bash
-streamlit run app/app.py
+streamlit run app/app_v2.py
 ```
 
 The app will open at `http://localhost:8501` in your browser.

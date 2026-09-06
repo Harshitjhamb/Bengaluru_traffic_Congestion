@@ -24,7 +24,7 @@ jobs:
 
       - name: Compile check (syntax + import errors)
         run: |
-          python -m py_compile app/app.py notebook/train_v2.py
+          python -m py_compile app/app_v2.py notebook/train_v2.py
 
       - name: Smoke test — bundle loads and recommend_resources runs
         run: |
@@ -35,9 +35,9 @@ jobs:
               assert key in bundle, f"missing bundle key: {key}"
           print("Bundle OK — keys:", sorted(bundle.keys()))
 
-          src = open('app/app.py').read().split('# ---------------- UI ----------------')[0]
+          src = open('app/app_v2.py').read().split('# ---------------- UI ----------------')[0]
           ns = {}
-          exec(compile(src, 'app.py', 'exec'), ns)
+          exec(compile(src, 'app_v2.py', 'exec'), ns)
           result = ns['recommend_resources']({
               'event_type': 'unplanned', 'event_cause': 'vehicle_breakdown',
               'latitude': 12.9716, 'longitude': 77.5946, 'hour': 9,

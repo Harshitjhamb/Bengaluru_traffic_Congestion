@@ -1,6 +1,6 @@
 # Bengaluru Event-Driven Traffic Congestion — Interview Prep in Plain English
 
-> **How this document was built:** every claim below was checked against the actual files in this repo — `app/app.py`, `notebook/train_v2.py` (the training script, re-run end-to-end on the real dataset), the actual `models/recommendation_engine_bundle_v2.pkl` (loaded and inspected directly, `type()`-checked), `models/v2_metrics.json` (the raw numbers the training script wrote out), `requirements.txt`, and `.github/workflows/ci.yml`. Every number quoted here is a real, measured number from an actual training run on the real 8,173-row ASTRAM dataset — not a target, not an estimate.
+> **How this document was built:** every claim below was checked against the actual files in this repo — `app/app_v2.py`, `notebook/train_v2.py` (the training script, re-run end-to-end on the real dataset), the actual `models/recommendation_engine_bundle_v2.pkl` (loaded and inspected directly, `type()`-checked), `models/v2_metrics.json` (the raw numbers the training script wrote out), `requirements.txt`, and `.github/workflows/ci.yml`. Every number quoted here is a real, measured number from an actual training run on the real 8,173-row ASTRAM dataset — not a target, not an estimate.
 
 ---
 
@@ -11,14 +11,14 @@ Your resume says: *"Engineered 3 XGBoost models with circular time encoding, hav
 | Resume claim | What's actually in the repo | Verified? |
 |---|---|---|
 | 3 XGBoost models | `models/recommendation_engine_bundle_v2.pkl` contains `XGBClassifier` (priority), `XGBClassifier` (closure), `XGBRegressor` (duration) — confirmed by loading the bundle and checking `type()`. | ✅ |
-| Circular time encoding | `hour_sin/cos`, `month_sin/cos`, `dow_sin/cos` — `add_circular_time_features()` in `notebook/train_v2.py`, mirrored in `app/app.py`. | ✅ |
+| Circular time encoding | `hour_sin/cos`, `month_sin/cos`, `dow_sin/cos` — `add_circular_time_features()` in `notebook/train_v2.py`, mirrored in `app/app_v2.py`. | ✅ |
 | Haversine hotspot distances | 6 named hotspots (MG Road, Silk Board, Hebbal, Marathahalli, Whitefield, Electronic City) — `add_hotspot_distances()`, stored as `hotspots` in the bundle, used both as model features and as the live map overlay. | ✅ |
 | Interaction features | `peak_x_cause` (`is_peak_hour × cause_score`), `weekend_x_cause` (`is_weekend × cause_score`) — `add_interaction_features()`. | ✅ |
 | AUC 0.98 | Priority classifier's real, measured test-set ROC-AUC is **0.9924** (`models/v2_metrics.json`). The resume's "0.98" is a slight *underestimate*. Closure's AUC is lower (0.7724 — a much harder, imbalanced problem) and duration is regression (no AUC). If asked "AUC of what, exactly," the precise answer is "the priority classifier." | ✅ (for priority — be precise about which model) |
 | 89% avg confidence | Real measured average (`mean(max(p, 1-p))` across the priority + closure test sets) is **88.4%** — resume rounds up slightly. | ✅ (off by 0.6 points) |
-| GitHub Actions | `.github/workflows/ci.yml` — compiles `app.py`/`train_v2.py` and runs a smoke test that loads the bundle and calls `recommend_resources()`. | ✅ |
+| GitHub Actions | `.github/workflows/ci.yml` — compiles `app_v2.py`/`train_v2.py` and runs a smoke test that loads the bundle and calls `recommend_resources()`. | ✅ |
 | Ensemble learning | XGBoost *is* ensemble learning — gradient-boosted decision trees, a sequential/additive ensemble method. | ✅ |
-| Folium live map with hotspot overlays | `app/app.py`'s `render_hotspot_map()` — a real `folium.Map` with a `HeatMap` layer over the 6 hotspots, markers for each hotspot and the submitted incident, embedded via `streamlit.components.v1.html`. | ✅ |
+| Folium live map with hotspot overlays | `app/app_v2.py`'s `render_hotspot_map()` — a real `folium.Map` with a `HeatMap` layer over the 6 hotspots, markers for each hotspot and the submitted incident, embedded via `streamlit.components.v1.html`. | ✅ |
 | Auto-detects nearest corridor via GPS, outputs officer count / station / barricading plan | `nearest_corridor()`, `manpower_map`, `zone_station_map` / `nearest_police_station()`. | ✅ |
 
 **One thing worth being ready for, not because it's a discrepancy but because a sharp interviewer might probe it:** the priority classifier's test-set accuracy (97%, AUC 0.99) is unusually high for a real-world tabular problem. That's exactly the kind of number that should make you suspicious of your own pipeline before you're proud of it — see Part 5, Concept 8 for the validation that was actually done to check this wasn't leakage, and hold onto that answer, because it's the single strongest thing you can say in this interview.
@@ -56,7 +56,7 @@ There is no live "traffic data feed," no database, and no backend API server. Th
 ### What are the major components?
 1. **`notebook/train_v2.py`** — the entire offline pipeline: cleaning, feature engineering, XGBoost training/evaluation for all three tasks, bundle export, and confusion-matrix/feature-importance PNG generation.
 2. **The model bundle** (`models/recommendation_engine_bundle_v2.pkl`) — a `joblib`-serialized dict containing the three trained XGBoost models, the exact feature-column lists each expects, and lookup tables (cause→score, severity→manpower, zone→station, corridor/station GPS tables, hotspot coordinates).
-3. **The Streamlit app** (`app/app.py`) — the online/inference-time half. Loads the bundle, exposes a form, runs the same feature-engineering logic used at training time on a single new event, and renders results including the live Folium map.
+3. **The Streamlit app** (`app/app_v2.py`) — the online/inference-time half. Loads the bundle, exposes a form, runs the same feature-engineering logic used at training time on a single new event, and renders results including the live Folium map.
 4. **`.github/workflows/ci.yml`** — GitHub Actions CI: installs dependencies, compiles both Python entry points, and runs a smoke test that loads the real bundle and calls `recommend_resources()` end-to-end.
 5. **EDA assets** (`assets/*.png`, `assets/bengaluru_hotspot_map.html`) — visual outputs. Three of the model-specific plots (`model1_confusion_matrix.png`, `model1_feature_importance.png`, `model2_confusion_matrix.png`) are regenerated directly by `train_v2.py` from the real deployed XGBoost models, so they always reflect what's actually shipped.
 
@@ -64,13 +64,13 @@ There is no live "traffic data feed," no database, and no backend API server. Th
 There's no separate frontend/backend split — Streamlit *is* both, running as one Python process.
 
 1. **User (frontend):** fills the form, clicks "Get Recommendation" in the browser.
-2. **Streamlit reruns `app.py` top-to-bottom** with the new widget values in scope.
+2. **Streamlit reruns `app_v2.py` top-to-bottom** with the new widget values in scope.
 3. **"Backend" logic:** `recommend_resources(event)` is called with a plain dict of the form inputs.
 4. **"Model layer":** the function reads from the in-memory `B` dict (the loaded bundle) — three XGBoost models plus several pandas lookup tables — no network call, no SQL, no external API.
 5. **Response:** the function returns a dict of predictions; the same script renders that dict as badges, gauges, a metrics grid, a hotspot-distance table, and an embedded Folium map.
 
 ### Simple numbered end-to-end flow
-1. Operator opens the Streamlit app (`streamlit run app/app.py`).
+1. Operator opens the Streamlit app (`streamlit run app/app_v2.py`).
 2. `load_bundle()` reads `models/recommendation_engine_bundle_v2.pkl` once and caches it (`@st.cache_resource`).
 3. Operator fills in event type, cause, GPS coordinates, hour, day, month, and (optionally) zone.
 4. Operator clicks "Get Recommendation."
@@ -120,13 +120,13 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 | **folium** (+ `folium.plugins.HeatMap`) | Renders the live hotspot map inside the running app (`render_hotspot_map()`) — a heatmap layer over the 6 named hotspots plus markers for each hotspot and the submitted incident, embedded via `st.components.v1.html(fmap._repr_html_(), height=420)`. | A `folium.Map` renders to HTML directly, so embedding it in Streamlit needs nothing beyond `streamlit.components.v1.html` — no extra `streamlit-folium` dependency. |
 | **joblib** | Serializing/deserializing the trained models and the bundle dict. | Standard for persisting scikit-learn/XGBoost objects. **Security caveat:** `joblib.load` is functionally `pickle.load` — see Part 10. |
 | **matplotlib / seaborn** | EDA charts under `assets/*.png`, plus the confusion-matrix/feature-importance plots regenerated from the real deployed XGBoost models. | Standard plotting; one-time analysis outputs, not a live dashboard. |
-| **GitHub Actions** | `.github/workflows/ci.yml` — installs `requirements.txt`, compiles `app/app.py` and `notebook/train_v2.py`, then loads the actual bundle and runs `recommend_resources()` as a smoke test. | Cheap, real CI signal that the app and the shipped bundle stay compatible — catches "someone changed a feature name and the app silently breaks." |
+| **GitHub Actions** | `.github/workflows/ci.yml` — installs `requirements.txt`, compiles `app/app_v2.py` and `notebook/train_v2.py`, then loads the actual bundle and runs `recommend_resources()` as a smoke test. | Cheap, real CI signal that the app and the shipped bundle stay compatible — catches "someone changed a feature name and the app silently breaks." |
 
 ---
 
 ## PART 3: COMPLETE PROJECT STRUCTURE
 
-### `app/app.py`
+### `app/app_v2.py`
 **Purpose:** The entire runtime application — loads the model bundle and serves live recommendations for one incident at a time.
 
 **Interview explanation:** "This is the only file that runs in production. `st.cache_resource` loads the model bundle once per process; `recommend_resources()` is a pure function that takes a dict describing an incident and returns a dict of predictions — the Streamlit widgets around it are UI plumbing."
@@ -134,7 +134,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 **Important implementation details:**
 - `load_bundle()` — `@st.cache_resource`-decorated so `recommendation_engine_bundle_v2.pkl` (~2MB) is deserialized once per process.
 - `haversine_km`, `nearest_police_station`, `nearest_corridor` — vectorized great-circle distance, k=5-nearest-then-mode denoising.
-- `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app.py` and `train_v2.py`. This symmetry is deliberate: it's what keeps the app from silently drifting out of sync with what the models were actually trained on.
+- `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app_v2.py` and `train_v2.py`. This symmetry is deliberate: it's what keeps the app from silently drifting out of sync with what the models were actually trained on.
 - `encode_single_event` — one-hot encodes a single row, then reindexes against the model's captured training-time column list, zero-filling anything missing. The standard fix for "one-hot encoding a single row produces different columns than training."
 - `recommend_resources(event)` — orchestrates the full pipeline: defaults missing fields → computes engineered features → detects corridor → runs priority model → runs closure model (tuned threshold) → computes severity from *predictions* → runs duration model (log-space, inverted) → looks up manpower and station.
 - `confidence_gauge()` — renders a colored horizontal bar (green ≥80%, orange ≥60%, red below) for both priority and closure confidence.
@@ -172,7 +172,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 ---
 
 ### `models/recommendation_engine_bundle_v2.pkl`
-**Purpose:** The single artifact that decouples training from serving — everything `app.py` needs to make a prediction, with no dependency on the raw CSV at runtime.
+**Purpose:** The single artifact that decouples training from serving — everything `app_v2.py` needs to make a prediction, with no dependency on the raw CSV at runtime.
 
 **Verified by loading the file directly:**
 - `priority_model`: `XGBClassifier`. `closure_model`: `XGBClassifier`. `duration_model`: `XGBRegressor`.
@@ -193,7 +193,7 @@ There's no separate frontend/backend split — Streamlit *is* both, running as o
 ### `.github/workflows/ci.yml`
 **Purpose:** GitHub Actions CI — installs `requirements.txt`, compiles both Python entry points, then loads the checked-in bundle and runs `recommend_resources()` against a sample event as a smoke test.
 
-**Why it matters:** A small but real CI signal — it catches the exact class of bug this project's own schema-drift discussion is about: if someone changes a feature name in `app.py` without updating the bundle (or vice versa), CI fails immediately instead of silently shipping a broken app.
+**Why it matters:** A small but real CI signal — it catches the exact class of bug this project's own schema-drift discussion is about: if someone changes a feature name in `app_v2.py` without updating the bundle (or vice versa), CI fails immediately instead of silently shipping a broken app.
 
 **Honest limitation:** it doesn't retrain or gate on model *quality* (no accuracy/F1 threshold) — it only proves the app and the currently-committed bundle are structurally compatible. Worth naming unprompted as a "what I'd add next."
 
@@ -231,7 +231,7 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 
 ### Flow 3 — CI workflow
 1. On every push/PR to `main`, GitHub Actions installs `requirements.txt`.
-2. Compiles `app/app.py` and `notebook/train_v2.py` (catches syntax/import errors).
+2. Compiles `app/app_v2.py` and `notebook/train_v2.py` (catches syntax/import errors).
 3. Loads the actual committed `recommendation_engine_bundle_v2.pkl` and runs `recommend_resources()` on a sample event, asserting the bundle has the expected keys and the app's pipeline still produces a valid prediction.
 
 ### Flows that do **not** exist in this project (do not claim these in an interview)
@@ -262,7 +262,7 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 ### 3. Target transformation (log1p / expm1) for skewed regression targets
 **What we built:** Duration regressor trained on `log1p(duration_hrs)`; predictions inverted with `np.expm1()`.
 **Why it needed it:** Duration is heavily right-skewed (median 0.76h vs max 23.95h) — training directly on hours would let a few huge outliers dominate the loss.
-**What could go wrong:** Forgetting `expm1` at inference is a classic real bug — `app.py` gets it right (`np.expm1(B['duration_model'].predict(Xd)[0])`).
+**What could go wrong:** Forgetting `expm1` at inference is a classic real bug — `app_v2.py` gets it right (`np.expm1(B['duration_model'].predict(Xd)[0])`).
 
 ### 4. One-hot encoding a single new row consistently with training-time columns
 **What we built:** `encode_single_event()` — one-hot encodes a single incoming event, then reindexes against the exact column list captured at training time, zero-filling anything missing.
@@ -350,7 +350,7 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 **Follow-up answer:** "Yes, and it's handled correctly here — `Dataset/Hack_dataset.csv` contains real street addresses and GPS coordinates, so it's excluded via `.gitignore` and never committed. That's a deliberate call."
 
 #### Q14. How do you handle secrets/credentials in this project?
-**Strong answer:** "There are none — no API keys, tokens, or credentials anywhere in `app.py` or `train_v2.py`. Nothing to rotate or move to an environment variable."
+**Strong answer:** "There are none — no API keys, tokens, or credentials anywhere in `app_v2.py` or `train_v2.py`. Nothing to rotate or move to an environment variable."
 
 ### Performance
 
@@ -421,7 +421,7 @@ Pinned with minimum versions: `pandas>=2.0`, `numpy>=1.24`, `scikit-learn>=1.2`,
 - **How would I improve it in production?** Validate lat/lon against Bengaluru's real bounding box (`latitude.between(12.8,13.3)`, `longitude.between(77.3,77.9)`) before returning a recommendation.
 
 ### Scenario: Bundle/app schema drift
-- **What can go wrong?** `app.py` hardcodes the path `models/recommendation_engine_bundle_v2.pkl`; a bundle with a renamed key or different feature-column count would `KeyError` or misalign silently.
+- **What can go wrong?** `app_v2.py` hardcodes the path `models/recommendation_engine_bundle_v2.pkl`; a bundle with a renamed key or different feature-column count would `KeyError` or misalign silently.
 - **How does the current code handle it?** The CI smoke test now catches the "crashes outright" case automatically on every push — it does not catch silent misalignment (same key names, subtly wrong values).
 - **How would I improve it further?** A checksum or version tag on the bundle, checked at app startup, so a stale or hand-edited bundle fails loudly rather than silently producing subtly-wrong predictions.
 
@@ -452,7 +452,7 @@ Queues/background workers, file storage, rate limiting, observability — none e
 
 | Issue | Current status | Why it matters | How to fix |
 |---|---|---|---|
-| **No authentication/authorization** | `app.py` has zero login/session/access-control logic. | Fine for a demo; not for a real dispatch tool. | Basic auth or a reverse-proxy SSO gate before real deployment. |
+| **No authentication/authorization** | `app_v2.py` has zero login/session/access-control logic. | Fine for a demo; not for a real dispatch tool. | Basic auth or a reverse-proxy SSO gate before real deployment. |
 | **Unpickling risk (`joblib.load`)** | `load_bundle()` calls `joblib.load()` on the bundle with no integrity check. | `pickle`-based deserialization can execute arbitrary code if the file source is ever untrusted. | Low risk today (self-produced, same repo); a hardened deployment should checksum the file before loading. |
 | **No input validation (GPS bounds)** | Still the one persistent, unaddressed gap. | Nonsensical coordinates still produce a confident-looking answer. | Validate lat/lon against Bengaluru's real bounding box before running any model. |
 | **Raw dataset handling** | **Handled correctly** — `Dataset/Hack_dataset.csv` (real addresses + GPS) is `.gitignore`'d, never committed. | Avoids shipping real, potentially sensitive location data in a public repo. | Already done — worth citing as a positive, not just listing gaps. |
@@ -481,7 +481,7 @@ Queues/background workers, file storage, rate limiting, observability — none e
 
 > "Recommendation engine auto-detects nearest corridor via GPS and outputs officer count, deployment station, barricading plan, and an interactive Folium live map with hotspot overlays."
 
-**How to defend it:** `app/app.py`'s `nearest_corridor()`, `manpower_map` lookup, `zone_station_map`/`nearest_police_station()`, and `render_hotspot_map()`. Be ready to explain the k=5-nearest-then-mode denoising pattern and how the Folium map is embedded (`_repr_html_()` into `st.components.v1.html`, no extra dependency).
+**How to defend it:** `app/app_v2.py`'s `nearest_corridor()`, `manpower_map` lookup, `zone_station_map`/`nearest_police_station()`, and `render_hotspot_map()`. Be ready to explain the k=5-nearest-then-mode denoising pattern and how the Folium map is embedded (`_repr_html_()` into `st.components.v1.html`, no extra dependency).
 
 **Also now true and defensible, if asked directly:** "GitHub Actions" (`.github/workflows/ci.yml`, real, runs a real smoke test) and "Ensemble learning" (XGBoost is boosted-tree ensemble learning, literally).
 
@@ -512,9 +512,9 @@ Queues/background workers, file storage, rate limiting, observability — none e
 ## PART 14: "IF THEY DIG DEEPER" CHEAT SHEET
 
 **Important functions:**
-- `recommend_resources(event)` — the orchestrating pipeline function (`app/app.py`).
+- `recommend_resources(event)` — the orchestrating pipeline function (`app/app_v2.py`).
 - `encode_single_event(...)` — reindex-based one-hot encoding for a single live row.
-- `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app/app.py` and `notebook/train_v2.py`.
+- `add_hotspot_distances`, `add_circular_time_features`, `add_interaction_features` — the feature-engineering block, present identically in both `app/app_v2.py` and `notebook/train_v2.py`.
 - `haversine_km`, `nearest_corridor`, `nearest_police_station` — geospatial lookups.
 - `render_hotspot_map`, `confidence_gauge` — the map/UI helpers.
 - `load_bundle()` — `@st.cache_resource`-decorated bundle loader.
