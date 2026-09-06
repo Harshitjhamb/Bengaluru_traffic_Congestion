@@ -1,10 +1,10 @@
 """
 Bengaluru Traffic Congestion — v2 training pipeline.
 
-Reproduces the exact cleaning steps from Flipkart_grid_notebook_complete.ipynb,
-then adds the v2 feature set (circular time encoding, haversine distance to
-named hotspots, interaction features) and trains XGBoost for all three tasks
-(priority classifier, road-closure classifier, duration regressor).
+Cleans the raw ASTRAM incident CSV, engineers a feature set (circular time
+encoding, haversine distance to named hotspots, interaction features), and
+trains XGBoost for all three tasks (priority classifier, road-closure
+classifier, duration regressor).
 
 Run: python notebook/train_v2.py
 Requires: Dataset/Hack_dataset.csv (not tracked in git — see Readme.md)

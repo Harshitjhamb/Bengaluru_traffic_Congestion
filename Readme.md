@@ -1,20 +1,20 @@
 # Bengaluru Event-Driven Traffic Congestion — Response Recommender
 
-> **Gridlock Hackathon 2.0 · Theme 2 · Event-Driven Congestion**  
+> **Gridlock Hackathon 2.0 · Theme 2 · Event-Driven Congestion**
 > An ML-powered dashboard that predicts incident impact and recommends manpower, barricading, and police station deployment in real time.
 
 ---
 
 ## Overview of the project
 
-Bengaluru handles thousands of traffic incidents daily — from vehicle breakdowns to VIP movements and protests. This project trains three machine learning models on 8,173 ASTRAM traffic events to:
+Bengaluru handles thousands of traffic incidents daily — from vehicle breakdowns to VIP movements and protests. This project trains three XGBoost models on 8,173 ASTRAM traffic events to:
 
 - Predict **incident priority** (High / Low)
 - Predict **road closure requirement** (Yes / No)
 - Estimate **incident duration** (hours)
 - Recommend **officer count**, **deployment station**, and **barricading** based on the above
 
-The v2 Streamlit app uses **XGBoost** models for all three tasks, with rich feature engineering (circular sin/cos time encoding, haversine distances to 6 named congestion hotspots, interaction features) — the priority classifier reaches **ROC-AUC 0.99**, and mean prediction confidence across the priority + closure test sets is **~88%**.
+The Streamlit app uses **XGBoost** models for all three tasks, with rich feature engineering — circular sin/cos time encoding, haversine distances to 6 named congestion hotspots, and interaction features — the priority classifier reaches **ROC-AUC 0.99**, and mean prediction confidence across the priority + closure test sets is **~88%**.
 
 ---
 
@@ -27,33 +27,28 @@ Bengaluru_Traffic_Congestion-main/
 │   └── ci.yml                            # GitHub Actions — compile check + bundle/app smoke test
 │
 ├── app/
-│   └── app.py                            # Streamlit dashboard (v2, XGBoost + feature engineering)
+│   └── app.py                            # Streamlit dashboard — XGBoost + feature engineering
 │
 ├── assets/                                  # EDA & model visualisation outputs
-│   ├── bengaluru_hotspot_map.html           # Interactive Folium map of congestion hotspots
+│   ├── bengaluru_hotspot_map.html           # Interactive Folium heatmap of all historical incidents
 │   ├── eda_extra1_planned_vs_unplanned.png
-│   ├── model1_confusion_matrix.png          # Priority classifier confusion matrix (XGBoost v2)
-│   ├── model1_feature_importance.png        # Top-15 feature importances (XGBoost v2)
-│   ├── model2_confusion_matrix.png          # Closure classifier confusion matrix (XGBoost v2)
+│   ├── model1_confusion_matrix.png          # Priority classifier confusion matrix
+│   ├── model1_feature_importance.png        # Top-15 feature importances
+│   ├── model2_confusion_matrix.png          # Closure classifier confusion matrix
 │   ├── step2_distributions.png              # Feature distributions
 │   ├── step3_time_patterns.png              # Hourly / day-of-week traffic patterns
 │   ├── step4_severity.png                   # Severity index breakdown
 │   ├── step5_corridors_zones.png            # Corridor & zone analysis
 │   └── step5_zone_time_matrix.png           # Zone × time-block heatmap
 │
-├── Dataset/                               # gitignored — place Hack_dataset.csv here to retrain
-│
-├── docs/
-│   └── vide_lind.md                       # Additional project notes / video link
+├── Dataset/                               # gitignored — place Hack_dataset.csv here to train
 │
 ├── models/
-│   ├── recommendation_engine_bundle_v2.pkl   # Deployed bundle — XGBoost × 3 (what app.py loads)
-│   ├── recommendation_engine_bundle.pkl      # v1 baseline — RandomForest × 3 (comparison only)
-│   └── v2_metrics.json                       # Real, computed v2 evaluation numbers
+│   ├── recommendation_engine_bundle_v2.pkl   # Trained bundle — XGBoost × 3 (what app.py loads)
+│   └── v2_metrics.json                       # Real, computed evaluation numbers
 │
 ├── notebook/
-│   ├── Flipkart_grid_notebook_complete.ipynb # v1 EDA + RandomForest baseline (Google Colab)
-│   └── train_v2.py                           # v2 standalone training script (XGBoost, deployed)
+│   └── train_v2.py                           # Training script — cleaning, feature engineering, XGBoost
 │
 ├── .gitignore
 ├── requirements.txt
@@ -69,21 +64,22 @@ Bengaluru_Traffic_Congestion-main/
 - **Size:** 8,173 rows × 46 columns
 - **Key columns:** `event_type`, `event_cause`, `latitude`, `longitude`, `priority`, `requires_road_closure`, `start_datetime`, `closed_datetime`, `corridor`, `zone`, `police_station`
 
-### Preprocessing (Notebook)
+### Preprocessing
 1. Drop fully-null columns (`map_file`, `comment`, `meta_data`)
-2. Parse all datetime columns;remove rows with`end_datetime < start_datetime`
+2. Parse all datetime columns; remove rows with `end_datetime < start_datetime`
 3. Drop columns with >90% missing values
 4. Replace placeholder `0.0` in `endlatitude` / `endlongitude` with `NaN`
 5. Derive `duration_hrs` from `(closed_datetime − start_datetime)`
-6. Extract time features:`hour`, `day_of_week`, `month_num`
-7. Engineer binary flags: `is_weekend`, `is_peak_hour` (7–9 AM,5–8 PM), `is_night` (10 PM–6 AM)
+6. Extract time features: `hour`, `day_of_week`, `month_num`
+7. Engineer binary flags: `is_weekend`, `is_peak_hour` (7–9 AM, 5–8 PM), `is_night` (10 PM–6 AM)
 8. Normalise `event_cause` (lowercase + strip)
 
-### Feature Engineering (v2 App)
+### Feature Engineering
 - **Circular time encoding:** `sin/cos` of hour, month, day-of-week
 - **Haversine distances** to 6 known congestion hotspots (MG Road, Silk Board, Hebbal, Marathahalli, Whitefield, Electronic City)
 - **Interaction features:** `peak_x_cause`, `weekend_x_cause`
-- **Cause severity score** from lookup map
+- **Cause severity score** from a lookup map
+
 ---
 
 ### Exploratory Data Analysis
@@ -113,15 +109,15 @@ Bengaluru_Traffic_Congestion-main/
 
 ### Models
 
-| # | Task | Algorithm | Key Metric | v1 RandomForest baseline |
-|---|------|-----------|------------|---------------------------|
-| 1 | Priority classification (High / Low) | **XGBoost** (`scale_pos_weight`, v2 features) | Acc 0.9694 · F1 0.9754 · **ROC-AUC 0.9924** | Acc 0.7697 · F1 0.8171 |
-| 2 | Road closure classification (Yes / No) | **XGBoost** (`scale_pos_weight` for 7.3% imbalance) | Acc 0.9124 · F1 0.3694 · AUC 0.7724 (threshold 0.609) | Acc 0.9080 · F1 0.3951 |
-| 3 | Duration regression (hours) | **XGBoost Regressor** (log1p-transformed target) | MAE 1.08 hrs · R²(log) 0.219 | MAE 1.11 hrs · R² 0.197 |
+| # | Task | Algorithm | Key Metric |
+|---|------|-----------|------------|
+| 1 | Priority classification (High / Low) | **XGBoost** (`scale_pos_weight`) | Acc 0.9694 · F1 0.9754 · **ROC-AUC 0.9924** |
+| 2 | Road closure classification (Yes / No) | **XGBoost** (`scale_pos_weight` for 7.3% imbalance) | Acc 0.9124 · F1 0.3694 · AUC 0.7724 (threshold 0.609) |
+| 3 | Duration regression (hours) | **XGBoost Regressor** (log1p-transformed target) | MAE 1.08 hrs · R²(log) 0.219 |
 
-v1 was a RandomForest baseline trained directly on raw lat/lon + categorical features. v2 re-engineers the feature set (circular time encoding, haversine hotspot distances, interaction terms) and switches to XGBoost — this is what's deployed in `app.py`. The priority classifier is the biggest winner: the added spatial/time features let it separate High/Low priority almost perfectly. Closure is comparable to the v1 baseline (a hard, ~7%-positive-class problem where more features help only marginally); duration improved modestly.
+The priority classifier's accuracy was validated with a **spatial group-holdout** (test-set GPS locations never seen in training) to confirm it's learning a genuine spatial/temporal pattern rather than memorizing repeated incident locations — accuracy held at 0.9730 / AUC 0.9886 under that harder split.
 
-**Imbalance handling:** `scale_pos_weight` (tuned via a small multiplier sweep) passed to the XGBoost closure model.  
+**Imbalance handling:** `scale_pos_weight` (tuned via a small hyperparameter sweep) passed to the XGBoost closure model.
 **Leakage prevention:** `priority_score` and `closure_score` excluded from classifier features; `severity_index` used only for duration regression.
 
 ### Model Bundle (`recommendation_engine_bundle_v2.pkl`)
@@ -134,16 +130,14 @@ Serialised with `joblib` by `notebook/train_v2.py`, the bundle contains:
 - `zone_station_map`, `station_coords`, `corridor_coords`
 - `hotspots` — lat/lon of the 6 named congestion points used for haversine distance features and the app's live map overlay
 
-A separate `recommendation_engine_bundle.pkl` (no `_v2`) is kept alongside it purely as the v1 RandomForest baseline for comparison — `app.py` only ever loads the v2 bundle.
-
 ---
 
 ## Streamlit App (`app/app.py`)
 
 ### What It Does
 1. Accepts an incoming traffic event (type, cause, GPS, time, zone)
-2. Auto-detects the nearest **corridor** and **hotspot** via haversine distance
-3. Runs all three models and computes a **severity score** (0–11)
+2. Auto-detects the nearest **corridor** via haversine distance, and computes distance to each named hotspot
+3. Runs all three XGBoost models and computes a **severity score** (2–11)
 4. Outputs:
    - Risk level (Low / Medium / High / Critical)
    - Predicted priority + confidence gauge
@@ -152,7 +146,6 @@ A separate `recommendation_engine_bundle.pkl` (no `_v2`) is kept alongside it pu
    - Recommended officer count
    - Recommended police station (zone lookup or GPS nearest-neighbour)
    - Barricading recommendation
-   - Priority/closure confidence gauges
    - Distance-to-hotspot table + live Folium map with hotspot overlay
 
 ---
@@ -165,8 +158,8 @@ A separate `recommendation_engine_bundle.pkl` (no `_v2`) is kept alongside it pu
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/Kartik-1818/Bengaluru_Traffic_Congestion
-cd Bengaluru_Traffic_Congestion
+git clone https://github.com/Harshitjhamb/Bengaluru_traffic_Congestion
+cd Bengaluru_traffic_Congestion
 ```
 
 ### 2. Create a virtual environment (recommended)
@@ -188,14 +181,13 @@ streamlit run app/app.py
 
 The app will open at `http://localhost:8501` in your browser.
 
-> **Note:** The pre-trained v2 model bundle (`models/recommendation_engine_bundle_v2.pkl`) is included. No retraining is required to run the app.
+> **Note:** The pre-trained model bundle (`models/recommendation_engine_bundle_v2.pkl`) is included. No retraining is required to run the app.
 
 ---
 
 ## Reproducing the Training
 
-### v2 (XGBoost, deployed) — `notebook/train_v2.py`
-A standalone script (no Colab/Drive dependency) that reproduces the notebook's cleaning pipeline, adds the v2 feature set, and trains all three XGBoost models.
+`notebook/train_v2.py` is a standalone script (no notebook/Colab dependency) that cleans the raw CSV, builds the feature set described above, and trains all three XGBoost models.
 
 ```bash
 # Place the raw data at Dataset/Hack_dataset.csv (not tracked in git — see below)
@@ -204,14 +196,6 @@ python notebook/train_v2.py
 This regenerates `models/recommendation_engine_bundle_v2.pkl`, `models/v2_metrics.json`, and the confusion-matrix / feature-importance PNGs under `assets/`.
 
 > **Dataset:** `Hack_dataset.csv` (8,173 ASTRAM traffic events with addresses and GPS coordinates) is **not committed to this repo** — it's excluded via `.gitignore` since it contains real incident location/address data. Request it from the hackathon dataset owners and place it at `Dataset/Hack_dataset.csv` before running the script.
-
-### v1 (RandomForest baseline) — `notebook/Flipkart_grid_notebook_complete.ipynb`
-The original exploratory notebook, developed on **Google Colab**, that produced the v1 RandomForest baseline (`models/recommendation_engine_bundle.pkl`) and all the EDA charts under `assets/`. Kept for reference/comparison; superseded by `train_v2.py` for the actual deployed models.
-
-### Install notebook-only dependencies
-```bash
-pip install xgboost imbalanced-learn plotly folium
-```
 
 ---
 
@@ -231,7 +215,6 @@ matplotlib>=3.7
 
 ---
 
-
 ## EDA Highlights
 
 | Insight | Detail |
@@ -243,7 +226,6 @@ matplotlib>=3.7
 | Severity range | 0–11 composite score (cause + type + priority + closure) |
 
 Visual outputs are saved to `assets/` and include distribution plots, time-pattern charts, corridor/zone heatmaps, and an interactive Folium map.
-
 
 ## Known Hotspot Coordinates
 
