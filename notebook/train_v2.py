@@ -203,7 +203,7 @@ log("MODEL 1 — PRIORITY CLASSIFIER (XGBoost, v2 features)")
 log("=" * 70)
 CAT_FEATURES_FIXED = ["event_type", "event_cause", "zone", "veh_type"]
 NUM_FEATURES_FIXED = (
-    ["latitude", "longitude", "is_weekend", "is_peak_hour", "is_night"]
+    ["latitude", "longitude", "is_weekend", "is_peak_hour", "is_night", "cause_score"]
     + hotspot_cols + circular_cols + interaction_cols
 )
 
@@ -217,8 +217,8 @@ X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(
 )
 neg_p, pos_p = (y_train_f == 0).sum(), (y_train_f == 1).sum()
 priority_model = XGBClassifier(
-    n_estimators=150, max_depth=3, learning_rate=0.1, reg_lambda=5, min_child_weight=10,
-    colsample_bytree=0.5, colsample_bylevel=0.5,
+    n_estimators=150, max_depth=3, learning_rate=0.1, reg_lambda=1, min_child_weight=3,
+    colsample_bytree=0.6, colsample_bylevel=0.6,
     scale_pos_weight=neg_p / pos_p, random_state=RANDOM_STATE,
     eval_metric="logloss", n_jobs=-1,
 )
@@ -269,7 +269,7 @@ log("MODEL 2 — ROAD CLOSURE CLASSIFIER (XGBoost, v2 features)")
 log("=" * 70)
 CAT_FEATURES = ["event_type", "event_cause", "zone", "corridor", "veh_type"]
 NUM_FEATURES = (
-    ["latitude", "longitude", "is_weekend", "is_peak_hour", "is_night"]
+    ["latitude", "longitude", "is_weekend", "is_peak_hour", "is_night", "cause_score"]
     + hotspot_cols + circular_cols + interaction_cols
 )
 

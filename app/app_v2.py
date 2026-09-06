@@ -61,6 +61,7 @@ def add_circular_time_features(event):
 
 def add_interaction_features(event):
     cause_w = B['cause_score_map'].get(event['event_cause'], 1)
+    event['cause_score'] = cause_w
     event['peak_x_cause'] = event['is_peak_hour'] * cause_w
     event['weekend_x_cause'] = event['is_weekend'] * cause_w
     return event
