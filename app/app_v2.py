@@ -151,7 +151,7 @@ def badge(text, color):
     return f'<span style="background:{color};color:white;padding:4px 14px;border-radius:14px;font-weight:600;">{text}</span>'
 
 
-# ---------------- UI ----------------
+
 st.title("🚦 Bengaluru Event-Driven Congestion — Response Recommender")
 st.caption("Gridlock Hackathon 2.0 · Theme 2 · Predicts incident impact and recommends manpower, barricading, and station deployment")
 
